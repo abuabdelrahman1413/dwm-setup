@@ -1,0 +1,239 @@
+# --- Variables ---
+# Set Mod key to "Mod4" (usually the Super/Windows key)
+set $mod Mod4
+
+# Set screen variables (MAKE SURE THESE ARE CORRECT FOR YOUR SETUP)
+# Find your screen names by running `xrandr` in a terminal.
+# set $screen1 "DP-1"
+# set $screen2 "HDMI-1"
+
+# Doom One theme
+set $background #282c34
+set $foreground #bbc2cf
+set $color0 #282c34
+set $color1 #ff6c6b
+set $color2 #98be65
+set $color3 #da8548
+set $color4 #51afef
+set $color5 #c678dd
+set $color6 #5699af
+set $color7 #bbc2cf
+set $color8 #5b6268
+set $color9 #ff6c6b
+set $color10 #98be65
+set $color11 #da8548
+set $color12 #51afef
+set $color13 #c678dd
+set $color14 #5699af
+set $color15 #ffffff
+
+
+
+# --- Window and Border Appearence ---
+# Colors for window borders and background
+client.focused          $color4 $background $foreground $color2 $color4
+client.focused_inactive $color8 $background $foreground $color8 $color8
+client.unfocused        $color8 $background $foreground $color8 $color8
+client.urgent           $color1 $background $foreground $color1 $color1
+client.placeholder      #000000         #0c0c0c      #ffffff     #000000         #0c0c0c
+client.background       $background
+
+# Font settings
+font pango:DejaVu Sans Mono 11
+
+# Border settings
+for_window [class="^.*"] border pixel 2
+smart_borders on
+
+# --- Autostart ---
+exec --no-startup-id /home/mohammed/.config/i3/scripts/pywal.sh
+
+# --- Keybindings ---
+
+# Application Launchers
+bindsym $mod+Return exec kitty
+bindsym $mod+d exec --no-startup-id rofi -show combi # Changed from dmenu to rofi
+bindsym $mod+b exec --no-startup-id brave # Lanuches Brave Browser
+bindsym $mod+o exec --no-startup-id qutebrowser # Launches qutebrowser
+bindsym $mod+Shift+f exec --no-startup-id thunar
+bindsym $mod+t exec --no-startup-id Telegram
+
+# Kill focused window
+bindsym $mod+q kill
+
+# Media and System Controls
+# Note: Replaced pactl with wpactl for Wayland compatibility.
+# The refresh command for i3status might need adjustment based on your status bar setup.
+bindsym XF86AudioRaiseVolume exec --no-startup-id wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+ && pkill -RTMIN+10 i3blocks
+bindsym XF86AudioLowerVolume exec --no-startup-id wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%- && pkill -RTMIN+10 i3blocks
+bindsym XF86AudioMute exec --no-startup-id wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle && pkill -RTMIN+10 i3blocks
+bindsym XF86AudioMicMute exec --no-startup-id wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle && pkill -RTMIN+11 i3blocks
+
+# Brightness controls
+bindsym XF86MonBrightnessUp exec brightnessctl set +10%
+bindsym XF86MonBrightnessDown exec brightnessctl set 10%-
+
+# Screenshot
+bindsym Print exec --no-startup-id sh -c 'maim -s -u | tee "$HOME/Screenshots/$(date +%s).png" | xclip -selection clipboard -t image/png'
+
+# MPV control
+bindsym $mod+p exec sh ~/.config/mpv/pause
+
+# Focus and Window Movement
+# Focus window
+bindsym $mod+h focus left
+bindsym $mod+j focus down
+bindsym $mod+k focus up
+bindsym $mod+l focus right
+bindsym $mod+Left focus left
+bindsym $mod+Down focus down
+bindsym $mod+Up focus up
+bindsym $mod+Right focus right
+
+# Move focused window
+bindsym $mod+Shift+h move left
+bindsym $mod+Shift+j move down
+bindsym $mod+Shift+k move up
+bindsym $mod+Shift+l move right
+bindsym $mod+Shift+Left move left
+bindsym $mod+Shift+Down move down
+bindsym $mod+Shift+Up move up
+bindsym $mod+Shift+Right move right
+
+
+# --- Layout and Container Controls ---
+
+# Split containers
+bindsym $mod+z split h
+bindsym $mod+v split v
+
+# Fullscreen mode
+bindsym $mod+f fullscreen toggle
+
+# Change layout
+bindsym $mod+s layout stacking
+bindsym $mod+w layout tabbed
+bindsym $mod+e layout toggle split
+
+# Toggle tiling/floating
+bindsym $mod+Shift+space floating toggle
+bindsym $mod+space focus mode_toggle
+
+# Focus parent/child containers
+bindsym $mod+a focus parent
+
+# Floating window controls
+floating_modifier $mod
+tiling_drag modifier titlebar
+
+# Scratchpad controls
+bindsym $mod+n move scratchpad
+bindsym $mod+Shift+n scratchpad show, floating disable
+
+
+
+
+# --- Workspace Management ---
+set $ws1 "1"
+set $ws2 "2"
+set $ws3 "3"
+set $ws4 "4"
+set $ws5 "5"
+set $ws6 "6"
+set $ws7 "7"
+set $ws8 "8"
+set $ws9 "9"
+set $ws10 "10"
+
+# Assign workspaces to specific monitors
+# workspace $ws1 output $screen1
+# workspace $ws2 output $screen1
+# workspace $ws3 output $screen1
+# workspace $ws4 output $screen1
+# workspace $ws5 output $screen1
+# workspace $ws6 output $screen2
+# workspace $ws7 output $screen2
+# workspace $ws8 output $screen2
+# workspace $ws9 output $screen2
+# Note: Workspace 10 will appear on the focused monitor by default.
+
+# Switch to workspace
+bindsym $mod+1 workspace number $ws1
+bindsym $mod+2 workspace number $ws2
+bindsym $mod+3 workspace number $ws3
+bindsym $mod+4 workspace number $ws4
+bindsym $mod+5 workspace number $ws5
+bindsym $mod+6 workspace number $ws6
+bindsym $mod+7 workspace number $ws7
+bindsym $mod+8 workspace number $ws8
+bindsym $mod+9 workspace number $ws9
+bindsym $mod+0 workspace number $ws10
+
+# Move focused container to workspace
+bindsym $mod+Shift+1 move container to workspace number $ws1
+bindsym $mod+Shift+2 move container to workspace number $ws2
+bindsym $mod+Shift+3 move container to workspace number $ws3
+bindsym $mod+Shift+4 move container to workspace number $ws4
+bindsym $mod+Shift+5 move container to workspace number $ws5
+bindsym $mod+Shift+6 move container to workspace number $ws6
+bindsym $mod+Shift+7 move container to workspace number $ws7
+bindsym $mod+Shift+8 move container to workspace number $ws8
+bindsym $mod+Shift+9 move container to workspace number $ws9
+bindsym $mod+Shift+0 move container to workspace number $ws10
+
+# Cycle through workspaces
+bindsym $mod+Control+l workspace next_on_output
+bindsym $mod+Control+h workspace prev_on_output
+bindsym $mod+Control+Right workspace next
+bindsym $mod+Control+Left workspace prev
+
+
+# --- i3 Modes ---
+
+# Reload, restart, and exit i3
+bindsym $mod+Shift+c reload
+bindsym $mod+Shift+r restart
+bindsym $mod+Shift+e exec --no-startup-id /home/mohammed/dotfiles/rofi/powermenu.sh
+bindsym $mod+Shift+q exec i3-msg exit
+
+# Resize mode
+mode "resize" {
+    bindsym h resize shrink width 10 px or 10 ppt
+    bindsym j resize grow height 10 px or 10 ppt
+    bindsym k resize shrink height 10 px or 10 ppt
+    bindsym l resize grow width 10 px or 10 ppt
+    bindsym Left resize shrink width 10 px or 10 ppt
+    bindsym Down resize grow height 10 px or 10 ppt
+    bindsym Up resize shrink height 10 px or 10 ppt
+    bindsym Right resize grow width 10 px or 10 ppt
+    bindsym Return mode "default"
+    bindsym Escape mode "default"
+    bindsym $mod+r mode "default"
+}
+bindsym $mod+r mode "resize"
+
+# Quick resize bindings (outside of resize mode)
+bindsym $mod+equal resize grow width 10 px
+bindsym $mod+minus resize shrink width 10 px
+
+
+# --- i3bar Configuration ---
+bar {
+    status_command i3status
+    # --- Tokyo Night Theme for i3bar ---
+    colors {
+        background $background
+        statusline $foreground
+        separator  $color8
+
+        #                        <border>        <background>   <text>
+        focused_workspace        $color4 $color4 $background
+        active_workspace         $color8        $color8        $foreground
+        inactive_workspace       $background     $background     $color8
+        urgent_workspace         $color1  $color1  $background
+    }
+}
+
+# --- Application Specific Rules ---
+# for_window [class="^.*"] exec --no-startup-id ~/.config/i3/scripts/master-stack.sh
+for_window [class="mpv"] move to workspace 4; workspace 4
