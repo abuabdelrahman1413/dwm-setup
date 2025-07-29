@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Mohamed Said - DWM Setup (Ultra-Minimal Expert Version)
+# Mohamed Said - DWM Setup (Dotfiles Management Version)
 # Target: Debian, with Sid pinning, selectable options, startx, and fish shell
 # NOTE: This script assumes 'contrib' and 'non-free' for the main release are already enabled by the user.
 
@@ -90,13 +90,10 @@ prompt_and_install_flatpak() {
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         msg "Installing Flatpak..."
         sudo apt-get install -y --no-install-recommends --no-install-suggests flatpak gnome-software-plugin-flatpak || die "Failed to install flatpak."
-        
         msg "Adding the Flathub repository..."
         sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo || die "Failed to add Flathub remote."
-
         msg "Installing Joplin from Flathub..."
         sudo flatpak install -y flathub net.cozic.joplin_desktop || die "Failed to install Joplin."
-
         msg "Granting Flatpak apps home directory access..."
         sudo flatpak override --filesystem=home
     else
@@ -110,18 +107,12 @@ prompt_and_install_obsidian() {
     read -p "This will download and install the latest .deb package from the official source. (y/n) " -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
-        # NOTE: This version might need to be updated in the future.
         local OBSIDIAN_VER="1.5.12"
         local OBSIDIAN_URL="https://github.com/obsidianmd/obsidian-releases/releases/download/v${OBSIDIAN_VER}/obsidian_${OBSIDIAN_VER}_amd64.deb"
-        
         msg "Downloading Obsidian v${OBSIDIAN_VER}..."
         wget -q --show-progress -O "$TEMP_DIR/obsidian.deb" "$OBSIDIAN_URL" || die "Failed to download Obsidian."
-        
         msg "Installing Obsidian..."
-        # Using apt to install the deb file handles dependencies automatically
         sudo apt-get install -y --no-install-recommends --no-install-suggests "$TEMP_DIR/obsidian.deb" || die "Failed to install Obsidian."
-        
-        msg "Obsidian installed successfully."
     else
         msg "Skipping Obsidian installation."
     fi
@@ -139,7 +130,8 @@ setup_sid_repository
 
 # --- Package Installation ---
 PACKAGES_CORE=(xorg xorg-dev libx11-dev libxinerama-dev xvkbd xinput build-essential sxhkd xdotool libnotify-bin libnotify-dev)
-PACKAGES_UI=(rofi dunst feh lxappearance)
+# ADDED picom and policykit-1-gnome
+PACKAGES_UI=(rofi dunst feh lxappearance picom policykit-1-gnome)
 PACKAGES_FILE_MANAGER=(thunar thunar-archive-plugin thunar-volman gvfs-backends dialog mtools unzip)
 PACKAGES_AUDIO=(pamixer pipewire-audio wireplumber)
 PACKAGES_UTILITIES=(acpi acpid maim slop xclip nala xdg-user-dirs-gtk eza fish nvidia-detect)
@@ -201,15 +193,20 @@ for tool in dwm slstatus st; do
 done
 
 # --- Final Setup ---
-msg "Creating .xinitrc file..."; cat > "$HOME/.xinitrc" << EOF
+# UPDATED: .xinitrc now only calls the autostart script
+msg "Creating a simplified .xinitrc file..."
+cat > "$HOME/.xinitrc" << EOF
 #!/bin/sh
-feh --bg-scale "$HOME/.config/dwm/wallpaper.png" &
-dunst &
-sxhkd &
-slstatus &
+
+# Launch the autostart script in the background.
+# Make sure your autostart script is executable: chmod +x ~/.config/scripts/autostart.sh
+[ -x "\$HOME/.config/scripts/autostart.sh" ] && \$HOME/.config/scripts/autostart.sh &
+
+# Execute dwm (this must be the last command)
 exec dwm
 EOF
 chmod +x "$HOME/.xinitrc"
+
 msg "Creating st desktop entry..."; mkdir -p "$HOME/.local/share/applications"
 cat > "$HOME/.local/share/applications/st.desktop" << EOF
 [Desktop Entry]
