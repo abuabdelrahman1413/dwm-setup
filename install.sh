@@ -1,51 +1,19 @@
 #!/bin/bash
 
-# JustAGuy Linux - DWM Setup
-# https://github.com/drewgrif/dwm-setup
+# Mohamed Said - DWM Setup (Personal Cleaned & Minimal Version)
+# Target: Debian, using startx (.xinitrc)
 
 set -e
-
-# Command line options
-ONLY_CONFIG=false
-EXPORT_PACKAGES=false
-
-# Parse arguments
-while [[ $# -gt 0 ]]; do
-    case $1 in
-        --only-config)
-            ONLY_CONFIG=true
-            shift
-            ;;
-        --export-packages)
-            EXPORT_PACKAGES=true
-            shift
-            ;;
-        --help)
-            echo "Usage: $0 [OPTIONS]"
-            echo "  --only-config      Only copy config files (skip packages and external tools)"
-            echo "  --export-packages  Export package lists for different distros and exit"
-            echo "  --help            Show this help message"
-            exit 0
-            ;;
-        *)
-            echo "Unknown option: $1"
-            echo "Use --help for usage information"
-            exit 1
-            ;;
-    esac
-done
 
 # Paths
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG_DIR="$HOME/.config/suckless"
-TEMP_DIR="/tmp/dwm_$$"
 LOG_FILE="$HOME/dwm-install.log"
 
 # Logging and cleanup
 exec > >(tee -a "$LOG_FILE") 2>&1
-trap "rm -rf $TEMP_DIR" EXIT
 
-# Colors
+# Colors for output messages
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 CYAN='\033[0;36m'
@@ -54,224 +22,97 @@ NC='\033[0m'
 die() { echo -e "${RED}ERROR: $*${NC}" >&2; exit 1; }
 msg() { echo -e "${CYAN}$*${NC}"; }
 
-# Export package lists for different distros
-export_packages() {
-    echo "=== DWM Setup - Package Lists for Different Distributions ==="
-    echo
-    
-    # Combine all packages
-    local all_packages=(
-        "${PACKAGES_CORE[@]}"
-        "${PACKAGES_UI[@]}"
-        "${PACKAGES_FILE_MANAGER[@]}"
-        "${PACKAGES_AUDIO[@]}"
-        "${PACKAGES_UTILITIES[@]}"
-        "${PACKAGES_TERMINAL[@]}"
-        "${PACKAGES_FONTS[@]}"
-        "${PACKAGES_BUILD[@]}"
-    )
-    
-    echo "DEBIAN/UBUNTU:"
-    echo "sudo apt install ${all_packages[*]}"
-    echo
-    
-    # Arch equivalents
-    local arch_packages=(
-        "xorg-server xorg-xinit xorg-xbacklight xbindkeys xvkbd xorg-xinput"
-        "base-devel sxhkd xdotool"
-        "libnotify"
-        "rofi dunst feh lxappearance network-manager-applet"
-        "thunar thunar-archive-plugin thunar-volman"
-        "gvfs dialog mtools smbclient cifs-utils unzip"
-        "pavucontrol pulsemixer pamixer pipewire-pulse"
-        "avahi acpi acpid xfce4-power-manager flameshot"
-        "qimgv firefox nala xdg-user-dirs-gtk"
-        "suckless-tools eza"
-        "ttf-font-awesome terminus-font"
-        "cmake meson ninja curl pkgconf"
-    )
-    
-    echo "ARCH LINUX:"
-    echo "sudo pacman -S ${arch_packages[*]}"
-    echo
-    
-    # Fedora equivalents
-    local fedora_packages=(
-        "xorg-x11-server-Xorg xorg-x11-xinit xbacklight xbindkeys xvkbd xinput"
-        "gcc make git sxhkd xdotool"
-        "libnotify"
-        "rofi dunst feh lxappearance NetworkManager-gnome"
-        "thunar thunar-archive-plugin thunar-volman"
-        "gvfs dialog mtools samba-client cifs-utils unzip"
-        "pavucontrol pulsemixer pamixer pipewire-pulseaudio"
-        "avahi acpi acpid xfce4-power-manager flameshot"
-        "qimgv firefox xdg-user-dirs-gtk"
-        "eza"
-        "fontawesome-fonts terminus-fonts"
-        "cmake meson ninja-build curl pkgconfig"
-    )
-    
-    echo "FEDORA:"
-    echo "sudo dnf install ${fedora_packages[*]}"
-    echo
-    
-    echo "NOTE: Some packages may have different names or may not be available"
-    echo "in all distributions. You may need to:"
-    echo "  - Find equivalent packages in your distro's repositories"
-    echo "  - Install some tools from source (like suckless tools)"
-    echo "  - Use alternative package managers (AUR for Arch, Flatpak, etc.)"
-    echo
-    echo "After installing packages, you can use:"
-    echo "  $0 --only-config    # To copy just the DWM configuration files"
-}
-
-# Check if we should export packages and exit
-if [ "$EXPORT_PACKAGES" = true ]; then
-    export_packages
-    exit 0
-fi
-
-# Banner
+# --- Script Start ---
 clear
 echo -e "${CYAN}"
-echo " +-+-+-+-+-+-+-+-+-+-+-+-+-+ "
-echo " |j|u|s|t|a|g|u|y|l|i|n|u|x| "
-echo " +-+-+-+-+-+-+-+-+-+-+-+-+-+ "
-echo " |d|w|m| |s|e|t|u|p|        | "
-echo " +-+-+-+-+-+-+-+-+-+-+-+-+-+ "
+echo " +-+-+-+-+-+-+-+-+-+-+-+-+ "
+echo " |m|o|h|a|m|e|d| |s|a|i|d| "
+echo " +-+-+-+-+-+-+-+-+-+-+-+-+ "
+echo " |d|w|m| |s|e|t|u|p|   | "
+echo " +-+-+-+-+-+-+-+-+-+-+-+-+ "
 echo -e "${NC}\n"
-
-read -p "Install DWM? (y/n) " -n 1 -r
-echo
-[[ ! $REPLY =~ ^[Yy]$ ]] && exit 1
+msg "Starting Minimal DWM setup for Debian (using .xinitrc)."
 
 # Update system
-if [ "$ONLY_CONFIG" = false ]; then
-    msg "Updating system..."
-    sudo apt-get update && sudo apt-get upgrade -y
-else
-    msg "Skipping system update (--only-config mode)"
-fi
+msg "Updating system..."
+sudo apt-get update && sudo apt-get upgrade -y
 
-# Package groups for better organization
-PACKAGES_CORE=(
-    xorg xorg-dev xbacklight xbindkeys xvkbd xinput
-    build-essential sxhkd xdotool
-    libnotify-bin libnotify-dev
-)
+# --- Package Installation ---
+# Minimal package list with maim for screenshots.
+PACKAGES_CORE=(xorg xorg-dev xbacklight xbindkeys xvkbd xinput build-essential sxhkd xdotool libnotify-bin libnotify-dev)
+PACKAGES_UI=(rofi dunst feh lxappearance)
+PACKAGES_FILE_MANAGER=(thunar thunar-archive-plugin thunar-volman gvfs-backends dialog mtools unzip)
+PACKAGES_AUDIO=(pamixer pipewire-audio wireplumber)
+# Replaced flameshot with maim, slop, and xclip
+PACKAGES_UTILITIES=(avahi-daemon acpi acpid maim slop xclip qimgv nala xdg-user-dirs-gtk eza)
+PACKAGES_TERMINAL=(suckless-tools)
+PACKAGES_FONTS=(fonts-recommended fonts-font-awesome fonts-terminus)
+PACKAGES_BUILD=(cmake meson ninja-build curl pkg-config)
 
-PACKAGES_UI=(
-    rofi dunst feh lxappearance network-manager-gnome
-)
+# Install packages
+msg "Installing selected packages..."
+sudo apt-get install -y "${PACKAGES_CORE[@]}" "${PACKAGES_UI[@]}" "${PACKAGES_FILE_MANAGER[@]}" "${PACKAGES_AUDIO[@]}" "${PACKAGES_UTILITIES[@]}" "${PACKAGES_TERMINAL[@]}" "${PACKAGES_FONTS[@]}" "${PACKAGES_BUILD[@]}" || die "Failed to install packages"
 
-PACKAGES_FILE_MANAGER=(
-    thunar thunar-archive-plugin thunar-volman
-    gvfs-backends dialog mtools smbclient cifs-utils unzip
-)
+# Install Brave Browser
+msg "Installing Brave Browser..."
+sudo apt-get install -y curl
+sudo curl -fsSLo /usr/share/keyrings/brave-browser-archive-keyring.gpg https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg
+echo "deb [signed-by=/usr/share/keyrings/brave-browser-archive-keyring.gpg] https://brave-browser-apt-release.s3.brave.com/ stable main" | sudo tee /etc/apt/sources.list.d/brave-browser-release.list
+sudo apt-get update
+sudo apt-get install -y brave-browser || die "Failed to install Brave Browser"
 
-PACKAGES_AUDIO=(
-    pavucontrol pulsemixer pamixer pipewire-audio
-)
+# Enable essential services
+msg "Enabling system services (acpid, avahi)..."
+sudo systemctl enable acpid avahi-daemon
 
-PACKAGES_UTILITIES=(
-    avahi-daemon acpi acpid xfce4-power-manager
-    flameshot qimgv nala xdg-user-dirs-gtk
-)
-
-PACKAGES_TERMINAL=(
-    suckless-tools
-)
-
-PACKAGES_FONTS=(
-    fonts-recommended fonts-font-awesome fonts-terminus
-)
-
-PACKAGES_BUILD=(
-    cmake meson ninja-build curl pkg-config
-)
-
-
-# Install packages by group
-if [ "$ONLY_CONFIG" = false ]; then
-    msg "Installing core packages..."
-    sudo apt-get install -y "${PACKAGES_CORE[@]}" || die "Failed to install core packages"
-
-    msg "Installing UI components..."
-    sudo apt-get install -y "${PACKAGES_UI[@]}" || die "Failed to install UI packages"
-
-    msg "Installing file manager..."
-    sudo apt-get install -y "${PACKAGES_FILE_MANAGER[@]}" || die "Failed to install file manager"
-
-    msg "Installing audio support..."
-    sudo apt-get install -y "${PACKAGES_AUDIO[@]}" || die "Failed to install audio packages"
-
-    msg "Installing system utilities..."
-    sudo apt-get install -y "${PACKAGES_UTILITIES[@]}" || die "Failed to install utilities"
-    
-    # Try firefox-esr first (Debian), then firefox (Ubuntu)
-    sudo apt-get install -y firefox-esr 2>/dev/null || sudo apt-get install -y firefox 2>/dev/null || msg "Note: firefox not available, skipping..."
-
-    msg "Installing terminal tools..."
-    sudo apt-get install -y "${PACKAGES_TERMINAL[@]}" || die "Failed to install terminal tools"
-    
-    # Try exa first (Debian 12), then eza (newer Ubuntu)
-    sudo apt-get install -y exa 2>/dev/null || sudo apt-get install -y eza 2>/dev/null || msg "Note: exa/eza not available, skipping..."
-
-    msg "Installing fonts..."
-    sudo apt-get install -y "${PACKAGES_FONTS[@]}" || die "Failed to install fonts"
-
-    msg "Installing build dependencies..."
-    sudo apt-get install -y "${PACKAGES_BUILD[@]}" || die "Failed to install build tools"
-
-    # Enable services
-    sudo systemctl enable avahi-daemon acpid
-else
-    msg "Skipping package installation (--only-config mode)"
-fi
-
-# Handle existing config
+# --- Configuration Setup ---
 if [ -d "$CONFIG_DIR" ]; then
-    clear
-    read -p "Found existing suckless config. Backup? (y/n) " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        mv "$CONFIG_DIR" "$CONFIG_DIR.bak.$(date +%s)"
-        msg "Backed up existing config"
-    else
-        clear
-        read -p "Overwrite without backup? (y/n) " -n 1 -r
-        echo
-        [[ $REPLY =~ ^[Yy]$ ]] || die "Installation cancelled"
-        rm -rf "$CONFIG_DIR"
-    fi
+    msg "Existing suckless config found. Backing it up..."
+    mv "$CONFIG_DIR" "$CONFIG_DIR.bak.$(date +%s)"
 fi
-
-# Copy configs
-msg "Setting up configuration..."
+msg "Setting up configuration files..."
 mkdir -p "$CONFIG_DIR"
-cp -r "$SCRIPT_DIR"/suckless/* "$CONFIG_DIR"/ || die "Failed to copy configs"
+cp -r "$SCRIPT_DIR"/suckless/* "$CONFIG_DIR"/ || die "Failed to copy configs. Make sure the 'suckless' directory is present."
 
-# Build suckless tools
-if [ "$ONLY_CONFIG" = false ]; then
-    msg "Building suckless tools..."
-    for tool in dwm slstatus st; do
-        cd "$CONFIG_DIR/$tool" || die "Cannot find $tool"
-        make && sudo make clean install || die "Failed to build $tool"
-    done
+# --- Build and Install Suckless Tools ---
+msg "Building and installing suckless tools (dwm, slstatus, st)..."
+for tool in dwm slstatus st; do
+    if [ -d "$CONFIG_DIR/$tool" ]; then
+        cd "$CONFIG_DIR/$tool" || die "Cannot find directory $CONFIG_DIR/$tool"
+        make && sudo make clean install || die "Failed to build and install $tool"
+    else
+        msg "Warning: Could not find sources for $tool in $CONFIG_DIR. Skipping build."
+    fi
+done
 
-    # Create desktop entry for DWM
-    sudo mkdir -p /usr/share/xsessions
-    cat <<EOF | sudo tee /usr/share/xsessions/dwm.desktop >/dev/null
-[Desktop Entry]
-Name=dwm
-Comment=Dynamic window manager
-Exec=dwm
-Type=XSession
+# --- Create .xinitrc for startx ---
+msg "Creating .xinitrc file to start DWM..."
+cat > "$HOME/.xinitrc" << EOF
+#!/bin/sh
+
+# Set wallpaper (adjust path if needed)
+feh --bg-scale "$HOME/.config/suckless/wallpaper/default.png" &
+
+# Start notification daemon
+dunst &
+
+# Start hotkey daemon
+sxhkd &
+
+# Start status bar
+slstatus &
+
+# Execute the window manager (last command)
+exec dwm
 EOF
 
-    # Create desktop file for ST
-    mkdir -p ~/.local/share/applications
-    cat > ~/.local/share/applications/st.desktop << EOF
+chmod +x "$HOME/.xinitrc"
+msg "Successfully created executable ~/.xinitrc"
+
+# Create .desktop entry for the 'st' terminal so it appears in rofi
+msg "Creating st desktop entry..."
+mkdir -p "$HOME/.local/share/applications"
+cat > "$HOME/.local/share/applications/st.desktop" << EOF
 [Desktop Entry]
 Name=st
 Comment=Simple Terminal
@@ -281,79 +122,15 @@ Terminal=false
 Type=Application
 Categories=System;TerminalEmulator;
 EOF
-else
-    msg "Skipping compilation and desktop entry (--only-config mode)"
-fi
 
-# Setup directories
+# Setup user directories
+msg "Updating XDG user directories..."
 xdg-user-dirs-update
-mkdir -p ~/Screenshots
+mkdir -p "$HOME/Screenshots"
 
-# Butterscript helper
-get_script() {
-    wget -qO- "https://raw.githubusercontent.com/drewgrif/butterscripts/main/$1" | bash
-}
-
-# Install essential components
-if [ "$ONLY_CONFIG" = false ]; then
-    mkdir -p "$TEMP_DIR" && cd "$TEMP_DIR"
-
-    msg "Installing picom..."
-    get_script "setup/install_picom.sh"
-
-    msg "Installing wezterm..."
-    get_script "wezterm/install_wezterm.sh"
-
-    msg "Installing fonts..."
-    get_script "theming/install_nerdfonts.sh"
-
-    msg "Installing themes..."
-    get_script "theming/install_theme.sh"
-    
-    msg "Downloading wallpaper directory..."
-    cd "$CONFIG_DIR"
-    git clone --depth 1 --filter=blob:none --sparse https://github.com/drewgrif/butterscripts.git "$TEMP_DIR/butterscripts-wallpaper" || die "Failed to clone butterscripts"
-    cd "$TEMP_DIR/butterscripts-wallpaper"
-    git sparse-checkout set wallpaper || die "Failed to set sparse-checkout"
-    cp -r wallpaper "$CONFIG_DIR"/ || die "Failed to copy wallpaper directory"
-
-    msg "Downloading display manager installer..."
-    wget -O "$TEMP_DIR/install_lightdm.sh" "https://raw.githubusercontent.com/drewgrif/butterscripts/main/system/install_lightdm.sh"
-    chmod +x "$TEMP_DIR/install_lightdm.sh"
-    msg "Running display manager installer..."
-    # Run in current terminal session to preserve interactivity
-    bash "$TEMP_DIR/install_lightdm.sh"
-
-    # Bashrc configuration
-    clear
-    read -p "Replace your .bashrc with justaguylinux .bashrc? (y/n) " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        msg "Configuring bashrc..."
-        get_script "system/add_bashrc.sh"
-    fi
-
-    # Optional tools
-    clear
-    read -p "Install optional tools (browsers, editors, etc)? (y/n) " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        msg "Downloading optional tools installer..."
-        wget -O "$TEMP_DIR/optional_tools.sh" "https://raw.githubusercontent.com/drewgrif/butterscripts/main/setup/optional_tools.sh"
-        chmod +x "$TEMP_DIR/optional_tools.sh"
-        msg "Running optional tools installer..."
-        # Run in current terminal session to preserve interactivity
-        if bash "$TEMP_DIR/optional_tools.sh"; then
-            msg "Optional tools completed successfully"
-        else
-            msg "Optional tools exited (this is normal if cancelled by user)"
-        fi
-    fi
-else
-    msg "Skipping external tool installation (--only-config mode)"
-fi
-
-# Done
+# --- Final Steps ---
 echo -e "\n${GREEN}Installation complete!${NC}"
-echo "1. Log out and select 'dwm' from your display manager"
-echo "2. Press Super+H for keybindings"
+echo "IMPORTANT: Remember to update your sxhkdrc with 'maim' commands for screenshots."
+echo "To start your new DWM session, log out, then log in to the TTY (text console)"
+echo "and run the command: startx"
+echo "A log file of this installation has been saved to: ~/dwm-install.log"
