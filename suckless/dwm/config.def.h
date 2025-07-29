@@ -24,7 +24,6 @@ static const char col_fg[]          = "#bbc2cf"; // foreground
 static const char col_gray[]        = "#5b6268"; // color8
 static const char col_blue[]        = "#51afef"; // color4
 static const char col_green[]       = "#98be65"; // color2 (for focused border)
-static const char col_red[]         = "#ff6c6b"; // color1 (for urgent)
 
 static const char *colors[][3]      = {
 	/*               fg         bg         border   */
@@ -37,10 +36,6 @@ static const char *colors[][3]      = {
 static const char *tags[] = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" };
 
 static const Rule rules[] = {
-	/* xprop(1):
-	 *	WM_CLASS(STRING) = instance, class
-	 *	WM_NAME(STRING) = title
-	 */
 	/* class      instance    title       tags mask     isfloating   monitor */
 	{ "Thunar",   NULL,       NULL,       0,            0,           -1 },
 	{ "mpv",      NULL,       NULL,       1 << 3,       1,           -1 },
@@ -74,33 +69,24 @@ static const Layout layouts[] = {
 #define SHCMD(cmd) { .v = (const char*[]){ "/bin/sh", "-c", cmd, NULL } }
 
 /* commands */
-static const char *termcmd[]  = { "st", NULL };
 // Scratchpad command
 static const char *scratchpadcmd[] = {"st", "-t", "scratchpad", "-g", "120x34", NULL};
 
 
-#include <X11/XF86keysym.h> // For media keys
-
 static const Key keys[] = {
 	/* modifier                     key        function        argument */
-	// --- Application Launchers (from i3 config) ---
-	{ MODKEY,                       XK_Return, spawn,          {.v = termcmd } },
-	{ MODKEY,                       XK_d,      spawn,          SHCMD("rofi -show combi") },
-	{ MODKEY,                       XK_b,      spawn,          SHCMD("brave") },
-	{ MODKEY|ShiftMask,             XK_f,      spawn,          SHCMD("thunar") },
-	
 	// --- Window Management (from i3 config) ---
 	{ MODKEY,                       XK_q,      killclient,     {0} },
 	{ MODKEY,                       XK_f,      fullscreen,     {0} },
 	{ MODKEY|ShiftMask,             XK_space,  togglefloating, {0} },
 
 	// --- Focus and Movement (i3 style: h,j,k,l) ---
-	{ MODKEY,                       XK_h,      focusstack,     {.i = +1 } },
-	{ MODKEY,                       XK_l,      focusstack,     {.i = -1 } },
-    { MODKEY,                       XK_j,      focusstack,     {.i = +1 } },
-	{ MODKEY,                       XK_k,      focusstack,     {.i = -1 } },
-    { MODKEY|ShiftMask,             XK_h,      movestack,      {.i = +1 } },
-	{ MODKEY|ShiftMask,             XK_l,      movestack,      {.i = -1 } },
+	{ MODKEY,                       XK_h,      focusstack,     {.i = -1 } }, // h = left
+	{ MODKEY,                       XK_l,      focusstack,     {.i = +1 } }, // l = right
+	{ MODKEY,                       XK_j,      focusstack,     {.i = +1 } }, // j = down
+	{ MODKEY,                       XK_k,      focusstack,     {.i = -1 } }, // k = up
+    { MODKEY|ShiftMask,             XK_h,      movestack,      {.i = -1 } },
+	{ MODKEY|ShiftMask,             XK_l,      movestack,      {.i = +1 } },
 	{ MODKEY|ShiftMask,             XK_j,      movestack,      {.i = +1 } },
 	{ MODKEY|ShiftMask,             XK_k,      movestack,      {.i = -1 } },
 
@@ -111,28 +97,18 @@ static const Key keys[] = {
 	{ MODKEY,                       XK_w,      setlayout,      {.v = &layouts[2]} }, // (w is also tabbed in i3)
 	{ MODKEY,                       XK_e,      setlayout,      {0} }, // Toggle previous layout
 
-	// --- Resize (i3 style) ---
-	{ MODKEY|ControlMask,           XK_h,      setmfact,       {.f = -0.05} }, // shrink width
-	{ MODKEY|ControlMask,           XK_l,      setmfact,       {.f = +0.05} }, // grow width
-    // Vertical resize is not a direct DWM equivalent, mfact handles width ratio
+	// --- Resize (i.e., change master factor) ---
+	{ MODKEY|ControlMask,           XK_h,      setmfact,       {.f = -0.05} }, // shrink master width
+	{ MODKEY|ControlMask,           XK_l,      setmfact,       {.f = +0.05} }, // grow master width
 
 	// --- Scratchpad (i3 style) ---
 	{ MODKEY,                       XK_n,      togglescratch,  {.v = scratchpadcmd } },
 	{ MODKEY|ShiftMask,             XK_n,      togglescratch,  {.v = scratchpadcmd } },
 
-	// --- System and Media Keys (from i3 config) ---
-	{ 0, XF86XK_AudioRaiseVolume,    spawn,     SHCMD("wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+; pkill -RTMIN+10 slstatus") },
-	{ 0, XF86XK_AudioLowerVolume,    spawn,     SHCMD("wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-; pkill -RTMIN+10 slstatus") },
-	{ 0, XF86XK_AudioMute,           spawn,     SHCMD("wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle; pkill -RTMIN+10 slstatus") },
-	{ 0, XF86XK_AudioMicMute,        spawn,     SHCMD("wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle; pkill -RTMIN+11 slstatus") },
-	{ 0, XF86XK_MonBrightnessUp,     spawn,     SHCMD("brightnessctl set +10%") },
-	{ 0, XF86XK_MonBrightnessDown,   spawn,     SHCMD("brightnessctl set 10%-") },
-	{ 0,                            XK_Print,  spawn,     SHCMD("maim -s -u | tee \"$HOME/Screenshots/$(date +%s).png\" | xclip -selection clipboard -t image/png") },
-
 	// --- DWM Specific Controls ---
 	{ MODKEY|ControlMask,           XK_b,      togglebar,      {0} },
-	{ MODKEY,                       XK_Tab,    view,           {0} },
-	{ MODKEY|Mod1Mask,              XK_0,      togglegaps,     {0} },
+	{ MODKEY,                       XK_Tab,    view,           {0} }, // Switch to last tag
+	{ MODKEY|Mod1Mask,              XK_0,      togglegaps,     {0} }, // Toggle gaps
 
 	// --- Workspace (Tag) Keys (i3 style) ---
 	TAGKEYS(                        XK_1,                      0)
@@ -146,22 +122,17 @@ static const Key keys[] = {
 	TAGKEYS(                        XK_9,                      8)
 	TAGKEYS(                        XK_0,                      9)
 
-	// --- Reload, Restart, Exit (i3 style) ---
-	{ MODKEY|ShiftMask,             XK_c,      quit,           {1} }, // Reload/Restart DWM
-	{ MODKEY|ShiftMask,             XK_r,      quit,           {1} }, // (Same as above)
-	{ MODKEY|ShiftMask,             XK_e,      spawn,          SHCMD("slock") }, // Using slock for exit/lock
-	{ MODKEY|ShiftMask,             XK_q,      quit,           {0} }, // Quit DWM session
+	// --- DWM Session Control (i3 style) ---
+	{ MODKEY|ShiftMask,             XK_c,      quit,           {1} }, // Restart DWM
+	{ MODKEY|ShiftMask,             XK_q,      quit,           {0} }, // Quit DWM session (log out)
 
 };
 
 /* button definitions */
-/* click can be ClkTagBar, ClkLtSymbol, ClkStatusText, ClkWinTitle, ClkClientWin, or ClkRootWin */
 static const Button buttons[] = {
 	/* click                event mask      button          function        argument */
 	{ ClkLtSymbol,          0,              Button1,        setlayout,      {0} },
-	{ ClkLtSymbol,          0,              Button3,        setlayout,      {.v = &layouts[2]} },
 	{ ClkWinTitle,          0,              Button2,        zoom,           {0} },
-	{ ClkStatusText,        0,              Button2,        spawn,          {.v = termcmd } },
 	{ ClkClientWin,         MODKEY,         Button1,        movemouse,      {0} },
 	{ ClkClientWin,         MODKEY,         Button2,        togglefloating, {0} },
 	{ ClkClientWin,         MODKEY,         Button3,        resizemouse,    {0} },
