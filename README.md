@@ -142,5 +142,3 @@ This setup is managed entirely through symbolic links. The `install.sh` script l
 ├── rofi/        -> (linked from repo's suckless/rofi)
 ├── fish/        -> (linked from repo's suckless/fish)
 └── scripts/     -> (linked from repo's suckless/scripts)
-```
-```
