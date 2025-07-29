@@ -1,7 +1,8 @@
-ؤ#!/bin/bash
+#!/bin/bash
 
-# Mohamed Said - DWM Setup (Personal Cleaned & Minimal Version)
-# Target: Debian, using startx (.xinitrc)
+# Mohamed Said - DWM Setup (Ultra-Minimal Expert Version)
+# Target: Debian, with selectable NVIDIA driver install, startx, and fish shell
+# NOTE: This script assumes 'contrib' and 'non-free' repositories are already enabled by the user.
 
 set -e
 
@@ -25,7 +26,72 @@ NC='\033[0m'
 die() { echo -e "${RED}ERROR: $*${NC}" >&2; exit 1; }
 msg() { echo -e "${CYAN}$*${NC}"; }
 
-# --- Script Start ---
+# --- NVIDIA Driver Installation Functions ---
+
+# Method 1: Auto-detect the correct driver package
+install_nvidia_auto() {
+    msg "--- Installing NVIDIA driver using Auto-Detect method ---"
+    msg "Updating package list to find NVIDIA drivers..."
+    sudo apt-get update
+    if ! command -v nvidia-detect &> /dev/null; then
+        msg "'nvidia-detect' not found. Make sure 'contrib' and 'non-free' repos are enabled. Skipping."
+        return
+    fi
+    NVIDIA_DRIVER_PACKAGE=$(nvidia-detect | grep -o 'nvidia-driver[a-zA-Z0-9-]*')
+    if [ -z "$NVIDIA_DRIVER_PACKAGE" ]; then
+        msg "No compatible NVIDIA card detected or driver already installed. Skipping."
+        return
+    fi
+    msg "Detected NVIDIA driver package: $NVIDIA_DRIVER_PACKAGE"
+    sudo apt-get install -y "$NVIDIA_DRIVER_PACKAGE" nvidia-settings || die "Failed to install NVIDIA drivers."
+    create_xorg_conf
+}
+
+# Method 2: Install the standard 'nvidia-driver' package directly
+install_nvidia_direct() {
+    msg "--- Installing NVIDIA driver using Direct method ---"
+    msg "Updating package list..."
+    sudo apt-get update
+    msg "Installing 'nvidia-driver' and 'nvidia-settings'..."
+    sudo apt-get install -y nvidia-driver nvidia-settings || die "Failed to install NVIDIA drivers."
+    create_xorg_conf
+}
+
+# Function to create the Xorg config file
+create_xorg_conf() {
+    msg "Creating Xorg configuration to load the NVIDIA driver..."
+    sudo mkdir -p /etc/X11/xorg.conf.d
+    cat <<EOF | sudo tee /etc/X11/xorg.conf.d/20-nvidia.conf
+Section "Device"
+    Identifier "Nvidia Card"
+    Driver     "nvidia"
+    VendorName "NVIDIA Corporation"
+EndSection
+EOF
+    msg "NVIDIA driver configuration complete."
+}
+
+# --- Main prompt to choose installation method ---
+prompt_and_install_nvidia() {
+    clear
+    msg "NVIDIA Driver Installation"
+    echo "Please choose the installation method:"
+    echo "  1) Auto-Detect Method (Recommended, Safe for all cards)"
+    echo "  2) Direct Method (For modern cards, uses 'nvidia-driver' package)"
+    echo "  3) Skip NVIDIA Installation"
+    echo
+    read -p "Enter your choice [1-3]: " choice
+
+    case $choice in
+        1) install_nvidia_auto ;;
+        2) install_nvidia_direct ;;
+        3) msg "Skipping NVIDIA driver installation." ;;
+        *) msg "Invalid choice. Skipping NVIDIA driver installation." ;;
+    esac
+}
+
+
+# --- Main Script Start ---
 clear
 echo -e "${CYAN}"
 echo " +-+-+-+-+-+-+-+-+-+-+-+-+ "
@@ -41,11 +107,13 @@ msg "Updating system..."
 sudo apt-get update && sudo apt-get upgrade -y
 
 # --- Package Installation ---
-PACKAGES_CORE=(xorg xorg-dev xbacklight xbindkeys xvkbd xinput build-essential sxhkd xdotool libnotify-bin libnotify-dev)
+# Added explicit build dependencies for DWM: libx11-dev, libxinerama-dev
+PACKAGES_CORE=(xorg xorg-dev libx11-dev libxinerama-dev xvkbd xinput build-essential sxhkd xdotool libnotify-bin libnotify-dev)
 PACKAGES_UI=(rofi dunst feh lxappearance)
 PACKAGES_FILE_MANAGER=(thunar thunar-archive-plugin thunar-volman gvfs-backends dialog mtools unzip)
 PACKAGES_AUDIO=(pamixer pipewire-audio wireplumber)
-PACKAGES_UTILITIES=(avahi-daemon acpi acpid maim slop xclip nala xdg-user-dirs-gtk eza)
+# Removed avahi-daemon, xbacklight, xbindkeys
+PACKAGES_UTILITIES=(acpi acpid maim slop xclip nala xdg-user-dirs-gtk eza fish nvidia-detect)
 PACKAGES_TERMINAL=(suckless-tools)
 PACKAGES_FONTS=(fonts-dejavu-core fonts-noto-naskh-arabic fonts-noto-color-emoji fonts-font-awesome fonts-terminus)
 PACKAGES_BUILD=(cmake meson ninja-build curl pkg-config)
@@ -53,6 +121,9 @@ PACKAGES_BUILD=(cmake meson ninja-build curl pkg-config)
 # Install packages from repositories
 msg "Installing selected packages..."
 sudo apt-get install -y "${PACKAGES_CORE[@]}" "${PACKAGES_UI[@]}" "${PACKAGES_FILE_MANAGER[@]}" "${PACKAGES_AUDIO[@]}" "${PACKAGES_UTILITIES[@]}" "${PACKAGES_TERMINAL[@]}" "${PACKAGES_FONTS[@]}" "${PACKAGES_BUILD[@]}" || die "Failed to install packages"
+
+# Prompt for and install NVIDIA Drivers
+prompt_and_install_nvidia
 
 # Install Brave Browser
 msg "Installing Brave Browser..."
@@ -65,7 +136,6 @@ sudo apt-get install -y brave-browser || die "Failed to install Brave Browser"
 # --- Nerd Font Installation and Configuration ---
 msg "Installing Nerd Fonts (FiraCode, JetBrainsMono)..."
 mkdir -p "$TEMP_DIR"
-# Define Nerd Fonts to install
 declare -a nerd_fonts=("FiraCode" "JetBrainsMono")
 for font in "${nerd_fonts[@]}"; do
     wget -q --show-progress -O "$TEMP_DIR/$font.zip" "https://github.com/ryanoasis/nerd-fonts/releases/latest/download/$font.zip" || die "Failed to download $font Nerd Font."
@@ -80,51 +150,11 @@ cat > "$HOME/.config/fontconfig/fonts.conf" << 'EOF'
 <?xml version="1.0"?>
 <!DOCTYPE fontconfig SYSTEM "fonts.dtd">
 <fontconfig>
-    <!-- General font rendering settings -->
-    <match target="font">
-        <edit name="autohint" mode="assign"><bool>false</bool></edit>
-        <edit name="hinting" mode="assign"><bool>true</bool></edit>
-        <edit name="hintstyle" mode="assign"><const>hintslight</const></edit>
-        <edit name="rgba" mode="assign"><const>rgb</const></edit>
-        <edit name="lcdfilter" mode="assign"><const>lcddefault</const></edit>
-    </match>
-    <!-- Font family aliases -->
-    <!-- Sans-serif -->
-    <alias>
-        <family>sans-serif</family>
-        <prefer>
-            <family>Noto Sans</family>
-            <family>Noto Naskh Arabic</family>
-            <family>FiraCode Nerd Font</family>
-            <family>Noto Color Emoji</family>
-        </prefer>
-    </alias>
-    <!-- Serif -->
-    <alias>
-        <family>serif</family>
-        <prefer>
-            <family>Noto Serif</family>
-            <family>Noto Naskh Arabic</family>
-            <family>FiraCode Nerd Font</family>
-            <family>Noto Color Emoji</family>
-        </prefer>
-    </alias>
-    <!-- Monospace -->
-    <alias>
-        <family>monospace</family>
-        <prefer>
-            <family>FiraCode Nerd Font</family>
-            <family>Noto Naskh Arabic</family>
-            <family>Noto Color Emoji</family>
-        </prefer>
-    </alias>
-    <!-- Explicitly use Noto Color Emoji for emoji -->
-    <match target="pattern">
-        <test qual="any" name="family"><string>emoji</string></test>
-        <edit name="family" mode="assign" binding="strong">
-            <string>Noto Color Emoji</string>
-        </edit>
-    </match>
+    <match target="font"><edit name="autohint" mode="assign"><bool>false</bool></edit><edit name="hinting" mode="assign"><bool>true</bool></edit><edit name="hintstyle" mode="assign"><const>hintslight</const></edit><edit name="rgba" mode="assign"><const>rgb</const></edit><edit name="lcdfilter" mode="assign"><const>lcddefault</const></edit></match>
+    <alias><family>sans-serif</family><prefer><family>Noto Sans</family><family>Noto Naskh Arabic</family><family>FiraCode Nerd Font</family><family>Noto Color Emoji</family></prefer></alias>
+    <alias><family>serif</family><prefer><family>Noto Serif</family><family>Noto Naskh Arabic</family><family>FiraCode Nerd Font</family><family>Noto Color Emoji</family></prefer></alias>
+    <alias><family>monospace</family><prefer><family>FiraCode Nerd Font</family><family>Noto Naskh Arabic</family><family>Noto Color Emoji</family></prefer></alias>
+    <match target="pattern"><test qual="any" name="family"><string>emoji</string></test><edit name="family" mode="assign" binding="strong"><string>Noto Color Emoji</string></edit></match>
 </fontconfig>
 EOF
 
@@ -132,49 +162,34 @@ msg "Updating font cache..."
 fc-cache -fv
 
 # --- System and DWM Configuration ---
-# Enable essential services
-msg "Enabling system services (acpid, avahi)..."
-sudo systemctl enable acpid avahi-daemon
-
-# Copy DWM configs
+# Removed avahi-daemon from systemctl enable
+msg "Enabling system services (acpid)..."
+sudo systemctl enable acpid
+msg "Setting up DWM configuration files..."
 if [ -d "$CONFIG_DIR" ]; then
-    msg "Existing suckless config found. Backing it up..."
     mv "$CONFIG_DIR" "$CONFIG_DIR.bak.$(date +%s)"
 fi
-msg "Setting up configuration files..."
 mkdir -p "$CONFIG_DIR"
-cp -r "$SCRIPT_DIR"/suckless/* "$CONFIG_DIR"/ || die "Failed to copy configs. Make sure the 'suckless' directory is present."
+cp -r "$SCRIPT_DIR"/suckless/* "$CONFIG_DIR"/ || die "Failed to copy configs."
 
-# Build and Install Suckless Tools
-msg "Building and installing suckless tools (dwm, slstatus, st)..."
+msg "Building and installing suckless tools..."
 for tool in dwm slstatus st; do
     if [ -d "$CONFIG_DIR/$tool" ]; then
-        cd "$CONFIG_DIR/$tool" || die "Cannot find directory $CONFIG_DIR/$tool"
-        make && sudo make clean install || die "Failed to build and install $tool"
-    else
-        msg "Warning: Could not find sources for $tool in $CONFIG_DIR. Skipping build."
+        cd "$CONFIG_DIR/$tool" && make && sudo make clean install || die "Failed to build $tool"
     fi
 done
 
-# Create .xinitrc for startx
-msg "Creating .xinitrc file to start DWM..."
+msg "Creating .xinitrc file..."
 cat > "$HOME/.xinitrc" << EOF
 #!/bin/sh
-# Set wallpaper (adjust path if needed)
 feh --bg-scale "$HOME/.config/suckless/wallpaper/default.png" &
-# Start notification daemon
 dunst &
-# Start hotkey daemon
 sxhkd &
-# Start status bar
 slstatus &
-# Execute the window manager (last command)
 exec dwm
 EOF
 chmod +x "$HOME/.xinitrc"
-msg "Successfully created executable ~/.xinitrc"
 
-# Create .desktop entry for 'st' so it appears in rofi
 msg "Creating st desktop entry..."
 mkdir -p "$HOME/.local/share/applications"
 cat > "$HOME/.local/share/applications/st.desktop" << EOF
@@ -188,13 +203,16 @@ Type=Application
 Categories=System;TerminalEmulator;
 EOF
 
-# Setup user directories
 msg "Updating XDG user directories..."
 xdg-user-dirs-update
 mkdir -p "$HOME/Screenshots"
 
+msg "Setting fish as the default shell for user $USER..."
+FISH_PATH=$(which fish)
+sudo chsh -s "$FISH_PATH" "$USER" || die "Failed to set fish as default shell."
+
 # --- Final Steps ---
 echo -e "\n${GREEN}Installation complete!${NC}"
-echo "To start your new DWM session, log out, then log in to the TTY (text console)"
-echo "and run the command: startx"
+echo -e "${RED}IMPORTANT: A REBOOT IS REQUIRED for the NVIDIA drivers and the new shell to load correctly.${NC}"
+echo "After rebooting, log in to the TTY (text console) and run the command: startx"
 echo "A log file of this installation has been saved to: ~/dwm-install.log"
