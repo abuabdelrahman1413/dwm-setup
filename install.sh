@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# Mohamed Said - DWM Setup (Stow-Managed Dotfiles Version)
-# Target: Debian, with Sid pinning, selectable options, startx, and fish shell
-# NOTE: This script assumes 'contrib' and 'non-free' for the main release are already enabled by the user.
+# Mohamed Said - DWM Setup (Advanced Dotfiles Management)
+# Target: Debian, with Sid pinning, nala, smart linking, startx, and fish shell
+# NOTE: This script assumes 'nala', 'contrib', and 'non-free' repos are already set up.
 
 set -e
 
@@ -43,26 +43,14 @@ Package: *
 Pin: release n=sid
 Pin-Priority: 100
 EOF
-    msg "Sid repository setup complete. Updating package lists..."; sudo apt-get update
+    msg "Sid repository setup complete. Updating package lists..."; sudo nala update
 }
 
 
-# --- NVIDIA Driver Installation Functions ---
-install_nvidia_auto() {
-    msg "--- Installing NVIDIA driver using Auto-Detect method ---"
-    if ! command -v nvidia-detect &> /dev/null; then msg "'nvidia-detect' not found. Skipping."; return; fi
-    NVIDIA_DRIVER_PACKAGE=$(nvidia-detect | grep -o 'nvidia-driver[a-zA-Z0-9-]*')
-    if [ -z "$NVIDIA_DRIVER_PACKAGE" ]; then msg "No compatible NVIDIA card detected. Skipping."; return; fi
-    msg "Detected NVIDIA driver package: $NVIDIA_DRIVER_PACKAGE"
-    sudo apt-get install -y --no-install-recommends --no-install-suggests "$NVIDIA_DRIVER_PACKAGE" nvidia-settings || die "Failed to install NVIDIA drivers."
-    create_xorg_conf
-}
-install_nvidia_direct() {
-    msg "--- Installing NVIDIA driver using Direct method ---"
-    sudo apt-get install -y --no-install-recommends --no-install-suggests nvidia-driver nvidia-settings || die "Failed to install NVIDIA drivers."
-    create_xorg_conf
-}
-create_xorg_conf() {
+# --- NVIDIA Driver Installation Function (Simplified) ---
+install_nvidia_driver() {
+    msg "--- Installing Standard NVIDIA Driver ---"
+    sudo nala install -y --no-install-recommends --no-install-suggests nvidia-driver nvidia-settings || die "Failed to install NVIDIA drivers."
     msg "Creating Xorg configuration to load the NVIDIA driver..."
     sudo mkdir -p /etc/X11/xorg.conf.d
     cat <<EOF | sudo tee /etc/X11/xorg.conf.d/20-nvidia.conf
@@ -74,58 +62,38 @@ EndSection
 EOF
     msg "NVIDIA driver configuration complete."
 }
-prompt_and_install_nvidia() {
-    clear
-    msg "NVIDIA Driver Installation"; echo "Please choose a method:"; echo "  1) Auto-Detect (Recommended)"; echo "  2) Direct (Modern cards)"; echo "  3) Skip"; echo
-    read -p "Enter your choice [1-3]: " choice
-    case $choice in 1) install_nvidia_auto ;; 2) install_nvidia_direct ;; *) msg "Skipping NVIDIA installation." ;; esac
-}
 
 # --- Optional Software Functions ---
 prompt_and_install_flatpak() {
-    clear
-    msg "Optional: Install Flatpak and Joplin?"
-    read -p "This will install Flatpak, add the Flathub remote, and install Joplin. (y/n) " -n 1 -r
-    echo
+    clear; msg "Optional: Install Flatpak and Joplin?"
+    read -p "(y/n) " -n 1 -r; echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
-        msg "Installing Flatpak..."
-        sudo apt-get install -y --no-install-recommends --no-install-suggests flatpak gnome-software-plugin-flatpak || die "Failed to install flatpak."
-        msg "Adding the Flathub repository..."
-        sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo || die "Failed to add Flathub remote."
-        msg "Installing Joplin from Flathub..."
-        sudo flatpak install -y flathub net.cozic.joplin_desktop || die "Failed to install Joplin."
-        msg "Granting Flatpak apps home directory access..."
-        sudo flatpak override --filesystem=home
-    else
-        msg "Skipping Flatpak installation."
-    fi
+        msg "Installing Flatpak..."; sudo nala install -y --no-install-recommends --no-install-suggests flatpak gnome-software-plugin-flatpak || die "Failed to install flatpak."
+        msg "Adding Flathub..."; sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+        msg "Installing Joplin..."; sudo flatpak install -y flathub net.cozic.joplin_desktop
+        msg "Granting home access..."; sudo flatpak override --filesystem=home
+    else msg "Skipping Flatpak installation."; fi
 }
 
 prompt_and_install_obsidian() {
-    clear
-    msg "Optional: Install Obsidian Note-Taking App?"
-    read -p "This will download and install the latest .deb package from the official source. (y/n) " -n 1 -r
-    echo
+    clear; msg "Optional: Install Obsidian Note-Taking App?"
+    read -p "(y/n) " -n 1 -r; echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         local OBSIDIAN_VER="1.5.12"
         local OBSIDIAN_URL="https://github.com/obsidianmd/obsidian-releases/releases/download/v${OBSIDIAN_VER}/obsidian_${OBSIDIAN_VER}_amd64.deb"
-        msg "Downloading Obsidian v${OBSIDIAN_VER}..."
-        wget -q --show-progress -O "$TEMP_DIR/obsidian.deb" "$OBSIDIAN_URL" || die "Failed to download Obsidian."
-        msg "Installing Obsidian..."
-        sudo apt-get install -y --no-install-recommends --no-install-suggests "$TEMP_DIR/obsidian.deb" || die "Failed to install Obsidian."
-    else
-        msg "Skipping Obsidian installation."
-    fi
+        msg "Downloading Obsidian..."; wget -q --show-progress -O "$TEMP_DIR/obsidian.deb" "$OBSIDIAN_URL"
+        msg "Installing Obsidian..."; sudo nala install -y --no-install-recommends --no-install-suggests "$TEMP_DIR/obsidian.deb"
+    else msg "Skipping Obsidian installation."; fi
 }
 
 # --- Main Script Start ---
 clear
 echo -e "${CYAN}"; echo " +-+-+-+-+-+-+-+-+-+-+-+-+ "; echo " |m|o|h|a|m|e|d| |s|a|i|d| "; echo " +-+-+-+-+-+-+-+-+-+-+-+-+ "; echo " |d|w|m| |s|e|t|u|p|   | "; echo " +-+-+-+-+-+-+-+-+-+-+-+-+ "; echo -e "${NC}\n"
-msg "Starting Dotfiles-Managed DWM setup for Debian."
+msg "Starting DWM setup for Debian."
 
 # Initial System Update & Sid Repo Setup
 msg "Performing initial system update and setting up repositories..."
-sudo apt-get update && sudo apt-get upgrade -y
+sudo nala update && sudo nala upgrade -y
 setup_sid_repository
 
 # --- Package Installation ---
@@ -133,37 +101,50 @@ PACKAGES_CORE=(xorg xorg-dev libx11-dev libxinerama-dev xvkbd xinput build-essen
 PACKAGES_UI=(rofi dunst feh lxappearance picom policykit-1-gnome)
 PACKAGES_FILE_MANAGER=(thunar thunar-archive-plugin thunar-volman gvfs-backends dialog mtools unzip)
 PACKAGES_AUDIO=(pamixer pipewire-audio wireplumber)
-# Re-added slop as it's required by 'maim -s'
-PACKAGES_UTILITIES=(acpi acpid maim slop xclip nala xdg-user-dirs-gtk eza fish nvidia-detect stow)
+# ADDED vim
+PACKAGES_UTILITIES=(acpi acpid maim slop xclip xdg-user-dirs-gtk eza fish vim)
 PACKAGES_TERMINAL=(suckless-tools)
-PACKAGES_FONTS=(fonts-dejavu-core fonts-noto-naskh-arabic fonts-noto-color-emoji fonts-font-awesome fonts-terminus)
+# CORRECTED noto fonts package
+PACKAGES_FONTS=(fonts-noto-* fonts-font-awesome fonts-terminus)
 PACKAGES_BUILD=(cmake meson ninja-build curl pkg-config)
 
-msg "Installing selected packages with minimal dependencies..."
-sudo apt-get install -y --no-install-recommends --no-install-suggests "${PACKAGES_CORE[@]}" "${PACKAGES_UI[@]}" "${PACKAGES_FILE_MANAGER[@]}" "${PACKAGES_AUDIO[@]}" "${PACKAGES_UTILITIES[@]}" "${PACKAGES_TERMINAL[@]}" "${PACKAGES_FONTS[@]}" "${PACKAGES_BUILD[@]}" || die "Failed to install packages"
+msg "Installing core packages with minimal dependencies..."
+sudo nala install -y --no-install-recommends --no-install-suggests "${PACKAGES_CORE[@]}" "${PACKAGES_UI[@]}" "${PACKAGES_FILE_MANAGER[@]}" "${PACKAGES_AUDIO[@]}" "${PACKAGES_UTILITIES[@]}" "${PACKAGES_TERMINAL[@]}" "${PACKAGES_FONTS[@]}" "${PACKAGES_BUILD[@]}" || die "Failed to install packages"
 
 # --- Special Package Installations ---
-prompt_and_install_nvidia
+install_nvidia_driver
+msg "Installing Geany and plugins from Sid repository..."
+sudo nala install -y -t sid --no-install-recommends --no-install-suggests geany geany-plugins || die "Failed to install geany from sid."
 msg "Installing Telegram Desktop from Sid repository..."
-sudo apt-get install -y -t sid --no-install-recommends --no-install-suggests telegram-desktop || die "Failed to install telegram-desktop from sid."
+sudo nala install -y -t sid --no-install-recommends --no-install-suggests telegram-desktop || die "Failed to install telegram-desktop from sid."
 msg "Installing Brave Browser..."
-sudo apt-get install -y --no-install-recommends --no-install-suggests curl
+sudo nala install -y --no-install-recommends --no-install-suggests curl
 sudo curl -fsSLo /usr/share/keyrings/brave-browser-archive-keyring.gpg https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg
 echo "deb [signed-by=/usr/share/keyrings/brave-browser-archive-keyring.gpg] https://brave-browser-apt-release.s3.brave.com/ stable main" | sudo tee /etc/apt/sources.list.d/brave-browser-release.list
-sudo apt-get update
-sudo apt-get install -y --no-install-recommends --no-install-suggests brave-browser || die "Failed to install Brave Browser"
+sudo nala update
+sudo nala install -y --no-install-recommends --no-install-suggests brave-browser || die "Failed to install Brave Browser"
 
 # --- Optional Software Installation ---
 prompt_and_install_flatpak
 prompt_and_install_obsidian
 
-# --- Nerd Font Installation ---
-msg "Installing Nerd Fonts (FiraCode, JetBrainsMono)..."
+# --- Smart Nerd Font Installation ---
+msg "Checking and installing Nerd Fonts..."
 mkdir -p "$TEMP_DIR"
-declare -a nerd_fonts=("FiraCode" "JetBrainsMono")
-for font in "${nerd_fonts[@]}"; do
-    wget -q --show-progress -O "$TEMP_DIR/$font.zip" "https://github.com/ryanoasis/nerd-fonts/releases/latest/download/$font.zip" || die "Failed to download $font."
-    mkdir -p "$HOME/.local/share/fonts/$font" && unzip -q -o "$TEMP_DIR/$font.zip" -d "$HOME/.local/share/fonts/$font" && msg "Installed $font."
+# Associative array: Search String -> Zip File Name
+declare -A nerd_fonts
+nerd_fonts["JetBrainsMono Nerd Font"]="JetBrainsMono.zip"
+nerd_fonts["FiraCode Nerd Font"]="FiraCode.zip"
+
+for font_name in "${!nerd_fonts[@]}"; do
+    font_zip="${nerd_fonts[$font_name]}"
+    if fc-list | grep -q "$font_name"; then
+        msg "Font '$font_name' already installed. Skipping download."
+    else
+        msg "Downloading and installing '$font_name'..."
+        wget -q --show-progress -O "$TEMP_DIR/$font_zip" "https://github.com/ryanoasis/nerd-fonts/releases/latest/download/$font_zip" || die "Failed to download $font_name."
+        mkdir -p "$HOME/.local/share/fonts/$(basename "$font_zip" .zip)" && unzip -q -o "$TEMP_DIR/$font_zip" -d "$HOME/.local/share/fonts/$(basename "$font_zip" .zip)" && msg "Installed $font_name."
+    fi
 done
 msg "Creating custom fontconfig file..."; mkdir -p "$HOME/.config/fontconfig"
 cat > "$HOME/.config/fontconfig/fonts.conf" << 'EOF'
@@ -174,30 +155,36 @@ msg "Updating font cache..."; fc-cache -fv
 # --- System Configuration ---
 msg "Enabling system services (acpid)..."; sudo systemctl enable acpid
 
-# --- Configuration Linking using Stow ---
-msg "Setting up configuration files using 'stow'..."
-STOW_DIR="$SCRIPT_DIR/suckless"
-if [ ! -d "$STOW_DIR" ]; then
-    die "Dotfiles directory '$STOW_DIR' not found. Aborting."
-fi
-mkdir -p "$HOME/.config"
-PACKAGES_TO_STOW=$(find "$STOW_DIR" -maxdepth 1 -mindepth 1 -type d -printf "%f\n")
-cd "$STOW_DIR"
-for pkg in $PACKAGES_TO_STOW; do
-    DEST_PATH="$HOME/.config/$pkg"
+# --- Configuration Linking ---
+msg "Setting up configuration files using symbolic links..."
+CONFIG_SOURCE_PARENT_DIR="$SCRIPT_DIR/suckless"
+CONFIG_DEST_PARENT_DIR="$HOME/.config"
+
+if [ ! -d "$CONFIG_SOURCE_PARENT_DIR" ]; then die "Source config dir '$CONFIG_SOURCE_PARENT_DIR' not found!"; fi
+mkdir -p "$CONFIG_DEST_PARENT_DIR"
+
+# Loop through each directory in the source and link it to the destination
+for config_dir in "$CONFIG_SOURCE_PARENT_DIR"/*/; do
+    # Remove trailing slash to get clean directory name
+    config_dir_clean=${config_dir%*/}
+    config_name=$(basename "$config_dir_clean")
+    
+    SOURCE_PATH="$config_dir_clean"
+    DEST_PATH="$CONFIG_DEST_PARENT_DIR/$config_name"
+
     if [ -e "$DEST_PATH" ] || [ -L "$DEST_PATH" ]; then
         msg "Backing up existing config at '$DEST_PATH'..."
         mv "$DEST_PATH" "$DEST_PATH.bak.$(date +%s)"
     fi
-    msg "Stowing '$pkg' to '~/.config'..."
-    stow -t "$HOME/.config" "$pkg" || die "Failed to stow package '$pkg'."
+    msg "Linking '$SOURCE_PATH' to '$DEST_PATH'..."
+    ln -s "$SOURCE_PATH" "$DEST_PATH" || die "Failed to create symbolic link for '$config_name'."
 done
-cd - > /dev/null
 
 # --- Build Suckless Tools ---
 msg "Building and installing suckless tools...";
 for tool in dwm slstatus st; do
-    if [ -d "$HOME/.config/$tool" ]; then cd "$HOME/.config/$tool" && make && sudo make clean install || die "Failed to build $tool"; fi
+    BUILD_PATH="$HOME/.config/$tool"
+    if [ -d "$BUILD_PATH" ]; then cd "$BUILD_PATH" && make && sudo make clean install || die "Failed to build $tool"; fi
 done
 
 # --- Final Setup ---
