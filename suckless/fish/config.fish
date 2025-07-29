@@ -5,7 +5,7 @@
 # --- Environment Variables ---
 set TERM "xterm-256color"
 
-# مثال لمتغيرات أدوات قد تحتاجها، عدل بحسب حاجتك
+# Example for tool variables you might need, edit as needed
 #set -x GOOGLE_CLOUD_PROJECT "your_project_id"
 #set -x ANDROID_HOME "$HOME/Android/Sdk"
 
@@ -16,18 +16,18 @@ fish_add_path --universal \
     $HOME/.local/bin \
     $HOME/.config/emacs/bin
 
-# أضف ما تحتاجه فقط من المسارات حسب أدواتك على ديبيان
+# Add only the paths you need for your tools on Debian
 # fish_add_path --universal "$ANDROID_HOME/emulator"
 # fish_add_path --universal "$ANDROID_HOME/platform-tools"
 
 # --- Aliases and Functions ---
 
 # Aliases for apt (Debian)
-alias install='sudo apt update && sudo apt install'     # تثبيت حزمة/حزم
-alias del='sudo apt remove'                             # إزالة حزمة
-alias clean='sudo apt clean'                            # تنظيف الكاش
-alias aptsearch='apt search'                            # البحث عن الحزم
-alias update='sudo apt update && sudo apt upgrade'      # تحديث النظام
+alias install='sudo apt update && sudo apt install'     # Install package(s)
+alias del='sudo apt remove'                             # Remove package
+alias clean='sudo apt clean'                            # Clean cache
+alias aptsearch='apt search'                            # Search for packages
+alias update='sudo apt update && sudo apt upgrade'      # System update
 
 # Functions for apt
 function aptinst
@@ -43,7 +43,7 @@ function aptupgr
 end
 
 # --- Startup Commands ---
-# يمكنك وضع أمر للعرض عند بدء التشغيل مثل:
+# You can put a command to display on startup, e.g.:
 fastfetch
 
-# انتهى
+# End
