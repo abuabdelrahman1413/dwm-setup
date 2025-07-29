@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Mohamed Said - DWM Setup (Advanced Dotfiles Management)
-# Target: Debian, with Sid pinning, nala, smart linking, startx, and fish shell
+# Target: Debian, with Sid pinning, nala, smart linking, iwd, startx, and fish shell
 # NOTE: This script assumes 'nala', 'contrib', and 'non-free' repos are already set up.
 
 set -e
@@ -101,15 +101,22 @@ PACKAGES_CORE=(xorg xorg-dev libx11-dev libxinerama-dev xvkbd xinput build-essen
 PACKAGES_UI=(rofi dunst feh lxappearance picom policykit-1-gnome)
 PACKAGES_FILE_MANAGER=(thunar thunar-archive-plugin thunar-volman gvfs-backends dialog mtools unzip)
 PACKAGES_AUDIO=(pamixer pipewire-audio wireplumber)
-# ADDED vim
-PACKAGES_UTILITIES=(acpi acpid maim slop xclip xdg-user-dirs-gtk eza fish vim)
+# ADDED iwd
+PACKAGES_UTILITIES=(acpi acpid maim slop xclip xdg-user-dirs-gtk eza fish vim iwd)
 PACKAGES_TERMINAL=(suckless-tools)
-# CORRECTED noto fonts package
 PACKAGES_FONTS=(fonts-noto-* fonts-font-awesome fonts-terminus)
 PACKAGES_BUILD=(cmake meson ninja-build curl pkg-config)
 
 msg "Installing core packages with minimal dependencies..."
 sudo nala install -y --no-install-recommends --no-install-suggests "${PACKAGES_CORE[@]}" "${PACKAGES_UI[@]}" "${PACKAGES_FILE_MANAGER[@]}" "${PACKAGES_AUDIO[@]}" "${PACKAGES_UTILITIES[@]}" "${PACKAGES_TERMINAL[@]}" "${PACKAGES_FONTS[@]}" "${PACKAGES_BUILD[@]}" || die "Failed to install packages"
+
+# --- Network Configuration ---
+msg "Configuring NetworkManager to use iwd as the Wi-Fi backend..."
+sudo mkdir -p /etc/NetworkManager/conf.d
+cat <<EOF | sudo tee /etc/NetworkManager/conf.d/wifi_backend.conf
+[device]
+wifi.backend=iwd
+EOF
 
 # --- Special Package Installations ---
 install_nvidia_driver
@@ -131,11 +138,9 @@ prompt_and_install_obsidian
 # --- Smart Nerd Font Installation ---
 msg "Checking and installing Nerd Fonts..."
 mkdir -p "$TEMP_DIR"
-# Associative array: Search String -> Zip File Name
 declare -A nerd_fonts
 nerd_fonts["JetBrainsMono Nerd Font"]="JetBrainsMono.zip"
 nerd_fonts["FiraCode Nerd Font"]="FiraCode.zip"
-
 for font_name in "${!nerd_fonts[@]}"; do
     font_zip="${nerd_fonts[$font_name]}"
     if fc-list | grep -q "$font_name"; then
@@ -153,25 +158,20 @@ EOF
 msg "Updating font cache..."; fc-cache -fv
 
 # --- System Configuration ---
-msg "Enabling system services (acpid)..."; sudo systemctl enable acpid
+# ADDED iwd to enabled services
+msg "Enabling system services (acpid, iwd)..."; sudo systemctl enable acpid iwd
 
 # --- Configuration Linking ---
 msg "Setting up configuration files using symbolic links..."
 CONFIG_SOURCE_PARENT_DIR="$SCRIPT_DIR/suckless"
 CONFIG_DEST_PARENT_DIR="$HOME/.config"
-
 if [ ! -d "$CONFIG_SOURCE_PARENT_DIR" ]; then die "Source config dir '$CONFIG_SOURCE_PARENT_DIR' not found!"; fi
 mkdir -p "$CONFIG_DEST_PARENT_DIR"
-
-# Loop through each directory in the source and link it to the destination
 for config_dir in "$CONFIG_SOURCE_PARENT_DIR"/*/; do
-    # Remove trailing slash to get clean directory name
     config_dir_clean=${config_dir%*/}
     config_name=$(basename "$config_dir_clean")
-    
     SOURCE_PATH="$config_dir_clean"
     DEST_PATH="$CONFIG_DEST_PARENT_DIR/$config_name"
-
     if [ -e "$DEST_PATH" ] || [ -L "$DEST_PATH" ]; then
         msg "Backing up existing config at '$DEST_PATH'..."
         mv "$DEST_PATH" "$DEST_PATH.bak.$(date +%s)"
@@ -206,6 +206,6 @@ FISH_PATH=$(which fish); sudo chsh -s "$FISH_PATH" "$USER" || die "Failed to set
 
 # --- Final Steps ---
 echo -e "\n${GREEN}Installation complete!${NC}"
-echo -e "${RED}IMPORTANT: A REBOOT IS REQUIRED for the NVIDIA drivers and the new shell to load correctly.${NC}"
+echo -e "${RED}IMPORTANT: A REBOOT IS REQUIRED for the NVIDIA drivers, network changes, and the new shell to load correctly.${NC}"
 echo "After rebooting, log in to the TTY (text console) and run the command: startx"
 echo "A log file of this installation has been saved to: ~/dwm-install.log"
