@@ -72,6 +72,7 @@ This setup uses a curated list of lightweight and powerful applications.
 | `lxappearance`    | GTK theme manager                |
 | `thunar`          | File Manager (+plugins)          |
 | `pipewire`        | Audio server (managed via CLI)   |
+| `mpv`             | Media player with custom configs  |
 | `maim` / `slop`   | Screenshot tools                 |
 | `Brave`           | Default web browser              |
 | `fish`            | Default interactive shell        |
@@ -105,6 +106,7 @@ DWM's internal window-management keybindings are in:
 | `Super + z / v / s` | Cycle through layouts           |
 | `Super + 1-0`       | Switch to tag                   |
 | `Super + Shift + 1-0`| Move window to tag              |
+| `Super + p`         | Toggle mpv pause/play           |
 | `Print`             | Take a region screenshot        |
 
 ---
@@ -141,4 +143,5 @@ This setup is managed entirely through symbolic links. The `install.sh` script l
 ├── picom/       -> (linked from repo's suckless/picom)
 ├── rofi/        -> (linked from repo's suckless/rofi)
 ├── fish/        -> (linked from repo's suckless/fish)
+├── mpv/         -> (linked from repo's suckless/mpv)
 └── scripts/     -> (linked from repo's suckless/scripts)

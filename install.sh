@@ -132,7 +132,7 @@ setup_sid_repository
 PACKAGES_CORE=(xorg xorg-dev libx11-dev libxinerama-dev xvkbd xinput build-essential sxhkd xdotool libnotify-bin libnotify-dev)
 PACKAGES_UI=(rofi dunst feh lxappearance picom policykit-1-gnome)
 PACKAGES_FILE_MANAGER=(thunar thunar-archive-plugin thunar-volman gvfs-backends dialog mtools unzip)
-PACKAGES_AUDIO=(pamixer pipewire-audio wireplumber)
+PACKAGES_AUDIO=(pamixer pipewire-audio wireplumber mpv)
 # Re-added slop as it's required by 'maim -s'
 PACKAGES_UTILITIES=(acpi acpid maim slop xclip nala xdg-user-dirs-gtk eza fish nvidia-detect stow)
 PACKAGES_TERMINAL=(suckless-tools)
