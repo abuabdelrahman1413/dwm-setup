@@ -28,7 +28,6 @@ msg() { echo -e "${CYAN}$*${NC}"; }
 # --- Repository Setup Function ---
 setup_sid_repository() {
     msg "--- Setting up Debian Sid (Unstable) Repository with Pinning ---"
-    msg "Creating /etc/apt/sources.list.d/sid.sources..."
     cat <<EOF | sudo tee /etc/apt/sources.list.d/sid.sources
 Types: deb deb-src
 URIs: http://deb.debian.org/debian/
@@ -36,7 +35,6 @@ Suites: sid
 Components: main contrib non-free non-free-firmware
 Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
 EOF
-    msg "Creating APT pinning preferences to prioritize the main release..."
     sudo mkdir -p /etc/apt/preferences.d
     cat <<EOF | sudo tee /etc/apt/preferences.d/99-sid-priority
 Package: *
@@ -50,7 +48,6 @@ EOF
 # --- NVIDIA Driver Installation Function (Simplified) ---
 install_nvidia_driver() {
     msg "--- Installing Standard NVIDIA Driver ---"
-    # Installs the driver package but no longer creates a custom Xorg config file.
     sudo nala install -y --no-install-recommends --no-install-suggests nvidia-driver nvidia-settings || die "Failed to install NVIDIA drivers."
     msg "NVIDIA driver installation complete. The system will use default configurations."
 }
@@ -60,7 +57,7 @@ prompt_and_install_flatpak() {
     clear; msg "Optional: Install Flatpak and Joplin?"
     read -p "(y/n) " -n 1 -r; echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
-        msg "Installing Flatpak..."; sudo nala install -y --no-install-recommends --no-install-suggests flatpak gnome-software-plugin-flatpak || die "Failed to install flatpak."
+        msg "Installing Flatpak..."; sudo nala install -y --no-install-recommends --no-install-suggests flatpak gnome-software-plugin-flatpak
         msg "Adding Flathub..."; sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
         msg "Installing Joplin..."; sudo flatpak install -y flathub net.cozic.joplin_desktop
         msg "Granting home access..."; sudo flatpak override --filesystem=home
@@ -83,35 +80,13 @@ clear
 echo -e "${CYAN}"; echo " +-+-+-+-+-+-+-+-+-+-+-+-+ "; echo " |m|o|h|a|m|e|d| |s|a|i|d| "; echo " +-+-+-+-+-+-+-+-+-+-+-+-+ "; echo " |d|w|m| |s|e|t|u|p|   | "; echo " +-+-+-+-+-+-+-+-+-+-+-+-+ "; echo -e "${NC}\n"
 msg "Starting DWM setup for Debian."
 
-# --- Configuration Linking (Moved to the beginning) ---
-msg "Step 1: Setting up configuration files using symbolic links..."
-CONFIG_SOURCE_PARENT_DIR="$SCRIPT_DIR/suckless"
-CONFIG_DEST_PARENT_DIR="$HOME/.config"
-
-if [ ! -d "$CONFIG_SOURCE_PARENT_DIR" ]; then die "Source config dir '$CONFIG_SOURCE_PARENT_DIR' not found! Aborting."; fi
-mkdir -p "$CONFIG_DEST_PARENT_DIR"
-
-for config_dir in "$CONFIG_SOURCE_PARENT_DIR"/*/; do
-    config_dir_clean=${config_dir%*/}
-    config_name=$(basename "$config_dir_clean")
-    SOURCE_PATH="$config_dir_clean"
-    DEST_PATH="$CONFIG_DEST_PARENT_DIR/$config_name"
-    if [ -e "$DEST_PATH" ] || [ -L "$DEST_PATH" ]; then
-        msg "Backing up existing config at '$DEST_PATH'..."
-        mv "$DEST_PATH" "$DEST_PATH.bak.$(date +%s)"
-    fi
-    msg "Linking '$SOURCE_PATH' to '$DEST_PATH'..."
-    ln -s "$SOURCE_PATH" "$DEST_PATH" || die "Failed to create symbolic link for '$config_name'."
-done
-msg "Configuration links created successfully."
-
 # Initial System Update & Sid Repo Setup
-msg "Step 2: Performing initial system update and setting up repositories..."
+msg "Step 1: Updating system and setting up repositories..."
 sudo nala update && sudo nala upgrade -y
 setup_sid_repository
 
 # --- Package Installation ---
-msg "Step 3: Installing packages..."
+msg "Step 2: Installing packages..."
 PACKAGES_CORE=(xorg xorg-dev libx11-dev libxinerama-dev xvkbd xinput build-essential sxhkd xdotool libnotify-bin libnotify-dev)
 PACKAGES_UI=(rofi dunst feh lxappearance picom policykit-1-gnome)
 PACKAGES_FILE_MANAGER=(thunar thunar-archive-plugin thunar-volman gvfs-backends dialog mtools unzip)
@@ -174,24 +149,44 @@ msg "Updating font cache..."; fc-cache -fv
 # --- System Services Configuration ---
 msg "Enabling system services (acpid, iwd)..."; sudo systemctl enable acpid iwd
 
-# --- Build Suckless Tools ---
-msg "Building and installing suckless tools...";
+# --- Build Suckless Tools (from source directory) ---
+msg "Building and installing suckless tools from source..."
 for tool in dwm slstatus st; do
-    BUILD_PATH="$HOME/.config/$tool"
-    if [ -d "$BUILD_PATH" ]; then cd "$BUILD_PATH" && make && sudo make clean install || die "Failed to build $tool"; fi
+    BUILD_PATH="$SCRIPT_DIR/suckless/$tool"
+    if [ -d "$BUILD_PATH" ]; then 
+        cd "$BUILD_PATH" && make && sudo make clean install || die "Failed to build $tool";
+    else
+        msg "Warning: Build directory for '$tool' not found at '$BUILD_PATH'. Skipping."
+    fi
 done
 
+# --- Configuration Linking (Moved to the end) ---
+msg "Setting up configuration files using symbolic links..."
+CONFIG_SOURCE_PARENT_DIR="$SCRIPT_DIR/suckless"
+CONFIG_DEST_PARENT_DIR="$HOME/.config"
+if [ ! -d "$CONFIG_SOURCE_PARENT_DIR" ]; then die "Source config dir '$CONFIG_SOURCE_PARENT_DIR' not found!"; fi
+mkdir -p "$CONFIG_DEST_PARENT_DIR"
+for config_dir in "$CONFIG_SOURCE_PARENT_DIR"/*/; do
+    config_dir_clean=${config_dir%*/}
+    config_name=$(basename "$config_dir_clean")
+    SOURCE_PATH="$config_dir_clean"
+    DEST_PATH="$CONFIG_DEST_PARENT_DIR/$config_name"
+    if [ -e "$DEST_PATH" ] || [ -L "$DEST_PATH" ]; then
+        msg "Backing up existing config at '$DEST_PATH'..."
+        mv "$DEST_PATH" "$DEST_PATH.bak.$(date +%s)"
+    fi
+    msg "Linking '$SOURCE_PATH' to '$DEST_PATH'..."
+    ln -s "$SOURCE_PATH" "$DEST_PATH" || die "Failed to create symbolic link for '$config_name'."
+done
+msg "Configuration links created successfully."
+
 # --- Final Setup ---
-# UPDATED: .xinitrc is now ultra-minimal. Startup is handled by DWM's autostart patch.
-msg "Creating an ultra-minimal .xinitrc file..."
+msg "Creating an ultra-minimal .xinitrc file...";
 cat > "$HOME/.xinitrc" << EOF
 #!/bin/sh
-# This file is intentionally minimal.
-# All startup applications are managed by DWM's cool-autostart patch.
 exec dwm
 EOF
 chmod +x "$HOME/.xinitrc"
-
 msg "Creating st desktop entry..."; mkdir -p "$HOME/.local/share/applications"
 cat > "$HOME/.local/share/applications/st.desktop" << EOF
 [Desktop Entry]
