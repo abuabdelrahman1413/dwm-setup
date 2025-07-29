@@ -1,16 +1,15 @@
 #!/bin/bash
 
 # Mohamed Said - DWM Setup (Ultra-Minimal Expert Version)
-# Target: Debian, with selectable NVIDIA driver install, startx, and fish shell
-# NOTE: This script assumes 'contrib' and 'non-free' repositories are already enabled by the user.
+# Target: Debian, with Sid pinning, selectable options, startx, and fish shell
+# NOTE: This script assumes 'contrib' and 'non-free' for the main release are already enabled by the user.
 
 set -e
 
 # Paths
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CONFIG_DIR="$HOME/.config/suckless"
 LOG_FILE="$HOME/dwm-install.log"
-TEMP_DIR="/tmp/dwm-fonts-$$"
+TEMP_DIR="/tmp/dwm-setup-$$"
 
 # Logging and cleanup
 exec > >(tee -a "$LOG_FILE") 2>&1
@@ -26,38 +25,43 @@ NC='\033[0m'
 die() { echo -e "${RED}ERROR: $*${NC}" >&2; exit 1; }
 msg() { echo -e "${CYAN}$*${NC}"; }
 
-# --- NVIDIA Driver Installation Functions ---
+# --- Repository Setup Function ---
+setup_sid_repository() {
+    msg "--- Setting up Debian Sid (Unstable) Repository with Pinning ---"
+    msg "Creating /etc/apt/sources.list.d/sid.sources..."
+    cat <<EOF | sudo tee /etc/apt/sources.list.d/sid.sources
+Types: deb deb-src
+URIs: http://deb.debian.org/debian/
+Suites: sid
+Components: main contrib non-free non-free-firmware
+Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+EOF
+    msg "Creating APT pinning preferences to prioritize the main release..."
+    sudo mkdir -p /etc/apt/preferences.d
+    cat <<EOF | sudo tee /etc/apt/preferences.d/99-sid-priority
+Package: *
+Pin: release n=sid
+Pin-Priority: 100
+EOF
+    msg "Sid repository setup complete. Updating package lists..."; sudo apt-get update
+}
 
-# Method 1: Auto-detect the correct driver package
+
+# --- NVIDIA Driver Installation Functions ---
 install_nvidia_auto() {
     msg "--- Installing NVIDIA driver using Auto-Detect method ---"
-    msg "Updating package list to find NVIDIA drivers..."
-    sudo apt-get update
-    if ! command -v nvidia-detect &> /dev/null; then
-        msg "'nvidia-detect' not found. Make sure 'contrib' and 'non-free' repos are enabled. Skipping."
-        return
-    fi
+    if ! command -v nvidia-detect &> /dev/null; then msg "'nvidia-detect' not found. Skipping."; return; fi
     NVIDIA_DRIVER_PACKAGE=$(nvidia-detect | grep -o 'nvidia-driver[a-zA-Z0-9-]*')
-    if [ -z "$NVIDIA_DRIVER_PACKAGE" ]; then
-        msg "No compatible NVIDIA card detected or driver already installed. Skipping."
-        return
-    fi
+    if [ -z "$NVIDIA_DRIVER_PACKAGE" ]; then msg "No compatible NVIDIA card detected. Skipping."; return; fi
     msg "Detected NVIDIA driver package: $NVIDIA_DRIVER_PACKAGE"
-    sudo apt-get install -y "$NVIDIA_DRIVER_PACKAGE" nvidia-settings || die "Failed to install NVIDIA drivers."
+    sudo apt-get install -y --no-install-recommends --no-install-suggests "$NVIDIA_DRIVER_PACKAGE" nvidia-settings || die "Failed to install NVIDIA drivers."
     create_xorg_conf
 }
-
-# Method 2: Install the standard 'nvidia-driver' package directly
 install_nvidia_direct() {
     msg "--- Installing NVIDIA driver using Direct method ---"
-    msg "Updating package list..."
-    sudo apt-get update
-    msg "Installing 'nvidia-driver' and 'nvidia-settings'..."
-    sudo apt-get install -y nvidia-driver nvidia-settings || die "Failed to install NVIDIA drivers."
+    sudo apt-get install -y --no-install-recommends --no-install-suggests nvidia-driver nvidia-settings || die "Failed to install NVIDIA drivers."
     create_xorg_conf
 }
-
-# Function to create the Xorg config file
 create_xorg_conf() {
     msg "Creating Xorg configuration to load the NVIDIA driver..."
     sudo mkdir -p /etc/X11/xorg.conf.d
@@ -70,146 +74,150 @@ EndSection
 EOF
     msg "NVIDIA driver configuration complete."
 }
-
-# --- Main prompt to choose installation method ---
 prompt_and_install_nvidia() {
     clear
-    msg "NVIDIA Driver Installation"
-    echo "Please choose the installation method:"
-    echo "  1) Auto-Detect Method (Recommended, Safe for all cards)"
-    echo "  2) Direct Method (For modern cards, uses 'nvidia-driver' package)"
-    echo "  3) Skip NVIDIA Installation"
-    echo
+    msg "NVIDIA Driver Installation"; echo "Please choose a method:"; echo "  1) Auto-Detect (Recommended)"; echo "  2) Direct (Modern cards)"; echo "  3) Skip"; echo
     read -p "Enter your choice [1-3]: " choice
-
-    case $choice in
-        1) install_nvidia_auto ;;
-        2) install_nvidia_direct ;;
-        3) msg "Skipping NVIDIA driver installation." ;;
-        *) msg "Invalid choice. Skipping NVIDIA driver installation." ;;
-    esac
+    case $choice in 1) install_nvidia_auto ;; 2) install_nvidia_direct ;; *) msg "Skipping NVIDIA installation." ;; esac
 }
 
+# --- Optional Software Functions ---
+prompt_and_install_flatpak() {
+    clear
+    msg "Optional: Install Flatpak and Joplin?"
+    read -p "This will install Flatpak, add the Flathub remote, and install Joplin. (y/n) " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        msg "Installing Flatpak..."
+        sudo apt-get install -y --no-install-recommends --no-install-suggests flatpak gnome-software-plugin-flatpak || die "Failed to install flatpak."
+        
+        msg "Adding the Flathub repository..."
+        sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo || die "Failed to add Flathub remote."
+
+        msg "Installing Joplin from Flathub..."
+        sudo flatpak install -y flathub net.cozic.joplin_desktop || die "Failed to install Joplin."
+
+        msg "Granting Flatpak apps home directory access..."
+        sudo flatpak override --filesystem=home
+    else
+        msg "Skipping Flatpak installation."
+    fi
+}
+
+prompt_and_install_obsidian() {
+    clear
+    msg "Optional: Install Obsidian Note-Taking App?"
+    read -p "This will download and install the latest .deb package from the official source. (y/n) " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        # NOTE: This version might need to be updated in the future.
+        local OBSIDIAN_VER="1.5.12"
+        local OBSIDIAN_URL="https://github.com/obsidianmd/obsidian-releases/releases/download/v${OBSIDIAN_VER}/obsidian_${OBSIDIAN_VER}_amd64.deb"
+        
+        msg "Downloading Obsidian v${OBSIDIAN_VER}..."
+        wget -q --show-progress -O "$TEMP_DIR/obsidian.deb" "$OBSIDIAN_URL" || die "Failed to download Obsidian."
+        
+        msg "Installing Obsidian..."
+        # Using apt to install the deb file handles dependencies automatically
+        sudo apt-get install -y --no-install-recommends --no-install-suggests "$TEMP_DIR/obsidian.deb" || die "Failed to install Obsidian."
+        
+        msg "Obsidian installed successfully."
+    else
+        msg "Skipping Obsidian installation."
+    fi
+}
 
 # --- Main Script Start ---
 clear
-echo -e "${CYAN}"
-echo " +-+-+-+-+-+-+-+-+-+-+-+-+ "
-echo " |m|o|h|a|m|e|d| |s|a|i|d| "
-echo " +-+-+-+-+-+-+-+-+-+-+-+-+ "
-echo " |d|w|m| |s|e|t|u|p|   | "
-echo " +-+-+-+-+-+-+-+-+-+-+-+-+ "
-echo -e "${NC}\n"
-msg "Starting Minimal DWM setup for Debian (using .xinitrc)."
+echo -e "${CYAN}"; echo " +-+-+-+-+-+-+-+-+-+-+-+-+ "; echo " |m|o|h|a|m|e|d| |s|a|i|d| "; echo " +-+-+-+-+-+-+-+-+-+-+-+-+ "; echo " |d|w|m| |s|e|t|u|p|   | "; echo " +-+-+-+-+-+-+-+-+-+-+-+-+ "; echo -e "${NC}\n"
+msg "Starting Dotfiles-Managed DWM setup for Debian."
 
-# Update system
-msg "Updating system..."
+# Initial System Update & Sid Repo Setup
+msg "Performing initial system update and setting up repositories..."
 sudo apt-get update && sudo apt-get upgrade -y
+setup_sid_repository
 
 # --- Package Installation ---
-# Added explicit build dependencies for DWM: libx11-dev, libxinerama-dev
 PACKAGES_CORE=(xorg xorg-dev libx11-dev libxinerama-dev xvkbd xinput build-essential sxhkd xdotool libnotify-bin libnotify-dev)
 PACKAGES_UI=(rofi dunst feh lxappearance)
 PACKAGES_FILE_MANAGER=(thunar thunar-archive-plugin thunar-volman gvfs-backends dialog mtools unzip)
 PACKAGES_AUDIO=(pamixer pipewire-audio wireplumber)
-# Removed avahi-daemon, xbacklight, xbindkeys
 PACKAGES_UTILITIES=(acpi acpid maim slop xclip nala xdg-user-dirs-gtk eza fish nvidia-detect)
 PACKAGES_TERMINAL=(suckless-tools)
 PACKAGES_FONTS=(fonts-dejavu-core fonts-noto-naskh-arabic fonts-noto-color-emoji fonts-font-awesome fonts-terminus)
 PACKAGES_BUILD=(cmake meson ninja-build curl pkg-config)
 
-# Install packages from repositories
-msg "Installing selected packages..."
-sudo apt-get install -y "${PACKAGES_CORE[@]}" "${PACKAGES_UI[@]}" "${PACKAGES_FILE_MANAGER[@]}" "${PACKAGES_AUDIO[@]}" "${PACKAGES_UTILITIES[@]}" "${PACKAGES_TERMINAL[@]}" "${PACKAGES_FONTS[@]}" "${PACKAGES_BUILD[@]}" || die "Failed to install packages"
+msg "Installing selected packages with minimal dependencies..."
+sudo apt-get install -y --no-install-recommends --no-install-suggests "${PACKAGES_CORE[@]}" "${PACKAGES_UI[@]}" "${PACKAGES_FILE_MANAGER[@]}" "${PACKAGES_AUDIO[@]}" "${PACKAGES_UTILITIES[@]}" "${PACKAGES_TERMINAL[@]}" "${PACKAGES_FONTS[@]}" "${PACKAGES_BUILD[@]}" || die "Failed to install packages"
 
-# Prompt for and install NVIDIA Drivers
+# --- Special Package Installations ---
 prompt_and_install_nvidia
-
-# Install Brave Browser
+msg "Installing Telegram Desktop from Sid repository..."
+sudo apt-get install -y -t sid --no-install-recommends --no-install-suggests telegram-desktop || die "Failed to install telegram-desktop from sid."
 msg "Installing Brave Browser..."
-sudo apt-get install -y curl
+sudo apt-get install -y --no-install-recommends --no-install-suggests curl
 sudo curl -fsSLo /usr/share/keyrings/brave-browser-archive-keyring.gpg https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg
 echo "deb [signed-by=/usr/share/keyrings/brave-browser-archive-keyring.gpg] https://brave-browser-apt-release.s3.brave.com/ stable main" | sudo tee /etc/apt/sources.list.d/brave-browser-release.list
 sudo apt-get update
-sudo apt-get install -y brave-browser || die "Failed to install Brave Browser"
+sudo apt-get install -y --no-install-recommends --no-install-suggests brave-browser || die "Failed to install Brave Browser"
 
-# --- Nerd Font Installation and Configuration ---
+# --- Optional Software Installation ---
+prompt_and_install_flatpak
+prompt_and_install_obsidian
+
+# --- Nerd Font Installation ---
 msg "Installing Nerd Fonts (FiraCode, JetBrainsMono)..."
 mkdir -p "$TEMP_DIR"
 declare -a nerd_fonts=("FiraCode" "JetBrainsMono")
 for font in "${nerd_fonts[@]}"; do
-    wget -q --show-progress -O "$TEMP_DIR/$font.zip" "https://github.com/ryanoasis/nerd-fonts/releases/latest/download/$font.zip" || die "Failed to download $font Nerd Font."
-    mkdir -p "$HOME/.local/share/fonts/$font"
-    unzip -q -o "$TEMP_DIR/$font.zip" -d "$HOME/.local/share/fonts/$font"
-    msg "Installed $font Nerd Font."
+    wget -q --show-progress -O "$TEMP_DIR/$font.zip" "https://github.com/ryanoasis/nerd-fonts/releases/latest/download/$font.zip" || die "Failed to download $font."
+    mkdir -p "$HOME/.local/share/fonts/$font" && unzip -q -o "$TEMP_DIR/$font.zip" -d "$HOME/.local/share/fonts/$font" && msg "Installed $font."
 done
-
-msg "Creating custom fontconfig file..."
-mkdir -p "$HOME/.config/fontconfig"
+msg "Creating custom fontconfig file..."; mkdir -p "$HOME/.config/fontconfig"
 cat > "$HOME/.config/fontconfig/fonts.conf" << 'EOF'
-<?xml version="1.0"?>
-<!DOCTYPE fontconfig SYSTEM "fonts.dtd">
-<fontconfig>
-    <match target="font"><edit name="autohint" mode="assign"><bool>false</bool></edit><edit name="hinting" mode="assign"><bool>true</bool></edit><edit name="hintstyle" mode="assign"><const>hintslight</const></edit><edit name="rgba" mode="assign"><const>rgb</const></edit><edit name="lcdfilter" mode="assign"><const>lcddefault</const></edit></match>
-    <alias><family>sans-serif</family><prefer><family>Noto Sans</family><family>Noto Naskh Arabic</family><family>FiraCode Nerd Font</family><family>Noto Color Emoji</family></prefer></alias>
-    <alias><family>serif</family><prefer><family>Noto Serif</family><family>Noto Naskh Arabic</family><family>FiraCode Nerd Font</family><family>Noto Color Emoji</family></prefer></alias>
-    <alias><family>monospace</family><prefer><family>FiraCode Nerd Font</family><family>Noto Naskh Arabic</family><family>Noto Color Emoji</family></prefer></alias>
-    <match target="pattern"><test qual="any" name="family"><string>emoji</string></test><edit name="family" mode="assign" binding="strong"><string>Noto Color Emoji</string></edit></match>
-</fontconfig>
+<?xml version="1.0"?><!DOCTYPE fontconfig SYSTEM "fonts.dtd"><fontconfig><match target="font"><edit name="autohint" mode="assign"><bool>false</bool></edit><edit name="hinting" mode="assign"><bool>true</bool></edit><edit name="hintstyle" mode="assign"><const>hintslight</const></edit><edit name="rgba" mode="assign"><const>rgb</const></edit><edit name="lcdfilter" mode="assign"><const>lcddefault</const></edit></match><alias><family>sans-serif</family><prefer><family>Noto Sans</family><family>Noto Naskh Arabic</family><family>FiraCode Nerd Font</family><family>Noto Color Emoji</family></prefer></alias><alias><family>serif</family><prefer><family>Noto Serif</family><family>Noto Naskh Arabic</family><family>FiraCode Nerd Font</family><family>Noto Color Emoji</family></prefer></alias><alias><family>monospace</family><prefer><family>FiraCode Nerd Font</family><family>Noto Naskh Arabic</family><family>Noto Color Emoji</family></prefer></alias><match target="pattern"><test qual="any" name="family"><string>emoji</string></test><edit name="family" mode="assign" binding="strong"><string>Noto Color Emoji</string></edit></match></fontconfig>
 EOF
+msg "Updating font cache..."; fc-cache -fv
 
-msg "Updating font cache..."
-fc-cache -fv
+# --- System Configuration ---
+msg "Enabling system services (acpid)..."; sudo systemctl enable acpid
 
-# --- System and DWM Configuration ---
-# Removed avahi-daemon from systemctl enable
-msg "Enabling system services (acpid)..."
-sudo systemctl enable acpid
-msg "Setting up DWM configuration files..."
-if [ -d "$CONFIG_DIR" ]; then
-    mv "$CONFIG_DIR" "$CONFIG_DIR.bak.$(date +%s)"
-fi
-mkdir -p "$CONFIG_DIR"
-cp -r "$SCRIPT_DIR"/suckless/* "$CONFIG_DIR"/ || die "Failed to copy configs."
-
-msg "Building and installing suckless tools..."
-for tool in dwm slstatus st; do
-    if [ -d "$CONFIG_DIR/$tool" ]; then
-        cd "$CONFIG_DIR/$tool" && make && sudo make clean install || die "Failed to build $tool"
-    fi
+# --- Configuration Linking ---
+msg "Setting up configuration files using symbolic links..."
+config_dirs=("dunst" "dwm" "fish" "i3" "picom" "rofi" "scripts" "slstatus" "st" "sxhkd")
+mkdir -p "$HOME/.config"
+for dir in "${config_dirs[@]}"; do
+    SOURCE_PATH="$SCRIPT_DIR/suckless/$dir"
+    DEST_PATH="$HOME/.config/$dir"
+    if [ ! -d "$SOURCE_PATH" ]; then msg "WARNING: Source directory '$SOURCE_PATH' not found. Skipping link for '$dir'."; continue; fi
+    if [ -e "$DEST_PATH" ] || [ -L "$DEST_PATH" ]; then msg "Backing up existing config at '$DEST_PATH'..."; mv "$DEST_PATH" "$DEST_PATH.bak.$(date +%s)"; fi
+    msg "Linking '$SOURCE_PATH' to '$DEST_PATH'..."; ln -s "$SOURCE_PATH" "$DEST_PATH" || die "Failed to create symbolic link for '$dir'."
 done
 
-msg "Creating .xinitrc file..."
-cat > "$HOME/.xinitrc" << EOF
+# --- Build Suckless Tools ---
+msg "Building and installing suckless tools...";
+for tool in dwm slstatus st; do
+    if [ -d "$HOME/.config/$tool" ]; then cd "$HOME/.config/$tool" && make && sudo make clean install || die "Failed to build $tool"; fi
+done
+
+# --- Final Setup ---
+msg "Creating .xinitrc file..."; cat > "$HOME/.xinitrc" << EOF
 #!/bin/sh
-feh --bg-scale "$HOME/.config/suckless/wallpaper/default.png" &
+feh --bg-scale "$HOME/.config/dwm/wallpaper.png" &
 dunst &
 sxhkd &
 slstatus &
 exec dwm
 EOF
 chmod +x "$HOME/.xinitrc"
-
-msg "Creating st desktop entry..."
-mkdir -p "$HOME/.local/share/applications"
+msg "Creating st desktop entry..."; mkdir -p "$HOME/.local/share/applications"
 cat > "$HOME/.local/share/applications/st.desktop" << EOF
 [Desktop Entry]
-Name=st
-Comment=Simple Terminal
-Exec=st
-Icon=utilities-terminal
-Terminal=false
-Type=Application
-Categories=System;TerminalEmulator;
+Name=st;Comment=Simple Terminal;Exec=st;Icon=utilities-terminal;Terminal=false;Type=Application;Categories=System;TerminalEmulator;
 EOF
-
-msg "Updating XDG user directories..."
-xdg-user-dirs-update
-mkdir -p "$HOME/Screenshots"
-
-msg "Setting fish as the default shell for user $USER..."
-FISH_PATH=$(which fish)
-sudo chsh -s "$FISH_PATH" "$USER" || die "Failed to set fish as default shell."
+msg "Updating XDG user directories..."; xdg-user-dirs-update; mkdir -p "$HOME/Screenshots"
+msg "Setting fish as the default shell for user $USER...";
+FISH_PATH=$(which fish); sudo chsh -s "$FISH_PATH" "$USER" || die "Failed to set fish shell."
 
 # --- Final Steps ---
 echo -e "\n${GREEN}Installation complete!${NC}"
