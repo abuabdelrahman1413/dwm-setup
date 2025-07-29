@@ -91,17 +91,42 @@ clear
 echo -e "${CYAN}"; echo " +-+-+-+-+-+-+-+-+-+-+-+-+ "; echo " |m|o|h|a|m|e|d| |s|a|i|d| "; echo " +-+-+-+-+-+-+-+-+-+-+-+-+ "; echo " |d|w|m| |s|e|t|u|p|   | "; echo " +-+-+-+-+-+-+-+-+-+-+-+-+ "; echo -e "${NC}\n"
 msg "Starting DWM setup for Debian."
 
+# --- Configuration Linking (Moved to the beginning) ---
+msg "Step 1: Setting up configuration files using symbolic links..."
+CONFIG_SOURCE_PARENT_DIR="$SCRIPT_DIR/suckless"
+CONFIG_DEST_PARENT_DIR="$HOME/.config"
+
+if [ ! -d "$CONFIG_SOURCE_PARENT_DIR" ]; then die "Source config dir '$CONFIG_SOURCE_PARENT_DIR' not found! Aborting."; fi
+mkdir -p "$CONFIG_DEST_PARENT_DIR"
+
+# Loop through each directory in the source and link it to the destination
+for config_dir in "$CONFIG_SOURCE_PARENT_DIR"/*/; do
+    config_dir_clean=${config_dir%*/}
+    config_name=$(basename "$config_dir_clean")
+    
+    SOURCE_PATH="$config_dir_clean"
+    DEST_PATH="$CONFIG_DEST_PARENT_DIR/$config_name"
+
+    if [ -e "$DEST_PATH" ] || [ -L "$DEST_PATH" ]; then
+        msg "Backing up existing config at '$DEST_PATH'..."
+        mv "$DEST_PATH" "$DEST_PATH.bak.$(date +%s)"
+    fi
+    msg "Linking '$SOURCE_PATH' to '$DEST_PATH'..."
+    ln -s "$SOURCE_PATH" "$DEST_PATH" || die "Failed to create symbolic link for '$config_name'."
+done
+msg "Configuration links created successfully."
+
 # Initial System Update & Sid Repo Setup
-msg "Performing initial system update and setting up repositories..."
+msg "Step 2: Performing initial system update and setting up repositories..."
 sudo nala update && sudo nala upgrade -y
 setup_sid_repository
 
 # --- Package Installation ---
+msg "Step 3: Installing packages..."
 PACKAGES_CORE=(xorg xorg-dev libx11-dev libxinerama-dev xvkbd xinput build-essential sxhkd xdotool libnotify-bin libnotify-dev)
 PACKAGES_UI=(rofi dunst feh lxappearance picom policykit-1-gnome)
 PACKAGES_FILE_MANAGER=(thunar thunar-archive-plugin thunar-volman gvfs-backends dialog mtools unzip)
 PACKAGES_AUDIO=(pamixer pipewire-audio wireplumber)
-# ADDED iwd
 PACKAGES_UTILITIES=(acpi acpid maim slop xclip xdg-user-dirs-gtk eza fish vim iwd)
 PACKAGES_TERMINAL=(suckless-tools)
 PACKAGES_FONTS=(fonts-noto-* fonts-font-awesome fonts-terminus)
@@ -157,28 +182,8 @@ cat > "$HOME/.config/fontconfig/fonts.conf" << 'EOF'
 EOF
 msg "Updating font cache..."; fc-cache -fv
 
-# --- System Configuration ---
-# ADDED iwd to enabled services
+# --- System Services Configuration ---
 msg "Enabling system services (acpid, iwd)..."; sudo systemctl enable acpid iwd
-
-# --- Configuration Linking ---
-msg "Setting up configuration files using symbolic links..."
-CONFIG_SOURCE_PARENT_DIR="$SCRIPT_DIR/suckless"
-CONFIG_DEST_PARENT_DIR="$HOME/.config"
-if [ ! -d "$CONFIG_SOURCE_PARENT_DIR" ]; then die "Source config dir '$CONFIG_SOURCE_PARENT_DIR' not found!"; fi
-mkdir -p "$CONFIG_DEST_PARENT_DIR"
-for config_dir in "$CONFIG_SOURCE_PARENT_DIR"/*/; do
-    config_dir_clean=${config_dir%*/}
-    config_name=$(basename "$config_dir_clean")
-    SOURCE_PATH="$config_dir_clean"
-    DEST_PATH="$CONFIG_DEST_PARENT_DIR/$config_name"
-    if [ -e "$DEST_PATH" ] || [ -L "$DEST_PATH" ]; then
-        msg "Backing up existing config at '$DEST_PATH'..."
-        mv "$DEST_PATH" "$DEST_PATH.bak.$(date +%s)"
-    fi
-    msg "Linking '$SOURCE_PATH' to '$DEST_PATH'..."
-    ln -s "$SOURCE_PATH" "$DEST_PATH" || die "Failed to create symbolic link for '$config_name'."
-done
 
 # --- Build Suckless Tools ---
 msg "Building and installing suckless tools...";
