@@ -1,102 +1,74 @@
-#####################
-# Application keybindings #
-#####################
+# ===================================================================
+# sxhkd configuration for DWM - by Mohamed Said
+# ===================================================================
+#
+# To reload this file after making changes, press: super + shift + r
+#
+# ===================================================================
+# I. Application Launchers
+# ===================================================================
 
-# Launch Browser (Firefox-esr)
+# Terminal (st)
+super + Return
+	st
+
+# Application Launcher (Rofi)
+super + d
+	rofi -show combi
+
+# Web Browser (Brave)
 super + b
-    firefox-esr
-    
-# Launch Private Browser (Firefox Incognito Mode)
-super + shift + b
-	firefox-esr -private-window
+	brave
 
-# Launch Rofi Application Menu
-super + space
-   	rofi -show drun -modi drun -line-padding 4 -hide-scrollbar -show-icons -theme ~/.config/suckless/rofi/config.rasi
-   	 
-# help with shortcuts
-super + h
-	~/.config/suckless/scripts/help
-	
-# Reload sxhkd (Hotkey Daemon)
-super + Escape
-	pkill -USR1 -x sxhkd; notify-send 'sxhkd' 'Reloaded config'
-
-# DWM Layout Menu	
-super + shift + l
-    ~/.config/suckless/scripts/dwm-layout-menu.sh
-
-# Launch File Manager (Thunar)
-super + f
+# File Manager (Thunar)
+super + shift + f
 	thunar
 
-# Launch Geany (Text Editor)
-super + e
-	geany
+# ===================================================================
+# II. System Hardware and Media Controls
+# ===================================================================
 
-# Launch GIMP (Image Editor)
-super + g
-	gimp
-	
-# super + c
-# 	google-chrome
-
-# Launch Discord	
-super + d
-	Discord
-
-# Launch OBS (Screen Recording/Streaming)
-super + o
-	obs
-	
-# Increase Volume (Custom Script)
-super + Insert
-    ~/.config/suckless/scripts/changevolume up
-
-# Decrease Volume (Custom Script)   
-super + Delete
-	~/.config/suckless/scripts/changevolume down
-	
-# Toggle Mute (Custom Script)
-super + m
-	~/.config/suckless/scripts/changevolume mute
-	
-# Dedicated Key for Volume Up
+# --- Volume Control (using wpctl for PipeWire) ---
+# NOTE: The "pkill -RTMIN+10 slstatus" part updates the volume in your DWM status bar.
 XF86AudioRaiseVolume
-	~/.config/suckless/scripts/changevolume up
-	
-# Dedicated Key for Volume Down
+	wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+; pkill -RTMIN+10 slstatus
+
 XF86AudioLowerVolume
-	~/.config/suckless/scripts/changevolume down
-	
-# Dedicated Key for Mute
+	wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-; pkill -RTMIN+10 slstatus
+
 XF86AudioMute
-	~/.config/suckless/scripts/changevolume mute
+	wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle; pkill -RTMIN+10 slstatus
 
-# Increase Screen Brightness
+XF86AudioMicMute
+	wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle; pkill -RTMIN+11 slstatus
+
+
+# --- Brightness Control ---
 XF86MonBrightnessUp
-	xbacklight +10
+	brightnessctl set +10%
 
-# Decrease Screen Brightness
 XF86MonBrightnessDown
-	xbacklight -10
-	
-# Take a Screenshot (Region Select)
-super + Print
-	flameshot gui --path ~/Screenshots/
+	brightnessctl set 10%-
 
-# Take a Fullscreen Screenshot
+
+# --- Screenshot (using maim) ---
+# Takes a screenshot of a selected area, saves it, and copies it to the clipboard.
 Print
-	flameshot full --path ~/Screenshots/
-	
-# Enable Redshift (Night Light)
-super + alt + r
-	~/.config/suckless/scripts/redshift-on
+	maim -s -u | tee "$HOME/Screenshots/$(date +%s).png" | xclip -selection clipboard -t image/png
 
-# Disable Redshift (Night Light)
-super + alt + b
-	~/.config/suckless/scripts/redshift-off
 
-# Power Off/Reboot
-super + x 
-	~/.config/suckless/scripts/power
+# ===================================================================
+# III. System and Session Management
+# ===================================================================
+
+# Reload sxhkd configuration file
+super + shift + r
+	pkill -USR1 -x sxhkd; notify-send "sxhkd" "Configuration Reloaded"
+
+# Lock screen (assuming slock is installed)
+super + shift + e
+	slock
+
+# You can add a powermenu script here if you have one, for example:
+# super + shift + x
+#   /path/to/your/powermenu.sh
