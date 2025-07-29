@@ -50,17 +50,9 @@ EOF
 # --- NVIDIA Driver Installation Function (Simplified) ---
 install_nvidia_driver() {
     msg "--- Installing Standard NVIDIA Driver ---"
+    # Installs the driver package but no longer creates a custom Xorg config file.
     sudo nala install -y --no-install-recommends --no-install-suggests nvidia-driver nvidia-settings || die "Failed to install NVIDIA drivers."
-    msg "Creating Xorg configuration to load the NVIDIA driver..."
-    sudo mkdir -p /etc/X11/xorg.conf.d
-    cat <<EOF | sudo tee /etc/X11/xorg.conf.d/20-nvidia.conf
-Section "Device"
-    Identifier "Nvidia Card"
-    Driver     "nvidia"
-    VendorName "NVIDIA Corporation"
-EndSection
-EOF
-    msg "NVIDIA driver configuration complete."
+    msg "NVIDIA driver installation complete. The system will use default configurations."
 }
 
 # --- Optional Software Functions ---
@@ -99,14 +91,11 @@ CONFIG_DEST_PARENT_DIR="$HOME/.config"
 if [ ! -d "$CONFIG_SOURCE_PARENT_DIR" ]; then die "Source config dir '$CONFIG_SOURCE_PARENT_DIR' not found! Aborting."; fi
 mkdir -p "$CONFIG_DEST_PARENT_DIR"
 
-# Loop through each directory in the source and link it to the destination
 for config_dir in "$CONFIG_SOURCE_PARENT_DIR"/*/; do
     config_dir_clean=${config_dir%*/}
     config_name=$(basename "$config_dir_clean")
-    
     SOURCE_PATH="$config_dir_clean"
     DEST_PATH="$CONFIG_DEST_PARENT_DIR/$config_name"
-
     if [ -e "$DEST_PATH" ] || [ -L "$DEST_PATH" ]; then
         msg "Backing up existing config at '$DEST_PATH'..."
         mv "$DEST_PATH" "$DEST_PATH.bak.$(date +%s)"
@@ -193,13 +182,16 @@ for tool in dwm slstatus st; do
 done
 
 # --- Final Setup ---
-msg "Creating a simplified .xinitrc file...";
+# UPDATED: .xinitrc is now ultra-minimal. Startup is handled by DWM's autostart patch.
+msg "Creating an ultra-minimal .xinitrc file..."
 cat > "$HOME/.xinitrc" << EOF
 #!/bin/sh
-[ -x "\$HOME/.config/scripts/autostart.sh" ] && \$HOME/.config/scripts/autostart.sh &
+# This file is intentionally minimal.
+# All startup applications are managed by DWM's cool-autostart patch.
 exec dwm
 EOF
 chmod +x "$HOME/.xinitrc"
+
 msg "Creating st desktop entry..."; mkdir -p "$HOME/.local/share/applications"
 cat > "$HOME/.local/share/applications/st.desktop" << EOF
 [Desktop Entry]
