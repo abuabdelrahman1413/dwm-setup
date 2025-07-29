@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Mohamed Said - DWM Setup (Dotfiles Management Version)
+# Mohamed Said - DWM Setup (Stow-Managed Dotfiles Version)
 # Target: Debian, with Sid pinning, selectable options, startx, and fish shell
 # NOTE: This script assumes 'contrib' and 'non-free' for the main release are already enabled by the user.
 
@@ -130,11 +130,11 @@ setup_sid_repository
 
 # --- Package Installation ---
 PACKAGES_CORE=(xorg xorg-dev libx11-dev libxinerama-dev xvkbd xinput build-essential sxhkd xdotool libnotify-bin libnotify-dev)
-# ADDED picom and policykit-1-gnome
 PACKAGES_UI=(rofi dunst feh lxappearance picom policykit-1-gnome)
 PACKAGES_FILE_MANAGER=(thunar thunar-archive-plugin thunar-volman gvfs-backends dialog mtools unzip)
 PACKAGES_AUDIO=(pamixer pipewire-audio wireplumber)
-PACKAGES_UTILITIES=(acpi acpid maim slop xclip nala xdg-user-dirs-gtk eza fish nvidia-detect)
+# Re-added slop as it's required by 'maim -s'
+PACKAGES_UTILITIES=(acpi acpid maim slop xclip nala xdg-user-dirs-gtk eza fish nvidia-detect stow)
 PACKAGES_TERMINAL=(suckless-tools)
 PACKAGES_FONTS=(fonts-dejavu-core fonts-noto-naskh-arabic fonts-noto-color-emoji fonts-font-awesome fonts-terminus)
 PACKAGES_BUILD=(cmake meson ninja-build curl pkg-config)
@@ -174,17 +174,25 @@ msg "Updating font cache..."; fc-cache -fv
 # --- System Configuration ---
 msg "Enabling system services (acpid)..."; sudo systemctl enable acpid
 
-# --- Configuration Linking ---
-msg "Setting up configuration files using symbolic links..."
-config_dirs=("dunst" "dwm" "fish" "i3" "picom" "rofi" "scripts" "slstatus" "st" "sxhkd")
+# --- Configuration Linking using Stow ---
+msg "Setting up configuration files using 'stow'..."
+STOW_DIR="$SCRIPT_DIR/suckless"
+if [ ! -d "$STOW_DIR" ]; then
+    die "Dotfiles directory '$STOW_DIR' not found. Aborting."
+fi
 mkdir -p "$HOME/.config"
-for dir in "${config_dirs[@]}"; do
-    SOURCE_PATH="$SCRIPT_DIR/suckless/$dir"
-    DEST_PATH="$HOME/.config/$dir"
-    if [ ! -d "$SOURCE_PATH" ]; then msg "WARNING: Source directory '$SOURCE_PATH' not found. Skipping link for '$dir'."; continue; fi
-    if [ -e "$DEST_PATH" ] || [ -L "$DEST_PATH" ]; then msg "Backing up existing config at '$DEST_PATH'..."; mv "$DEST_PATH" "$DEST_PATH.bak.$(date +%s)"; fi
-    msg "Linking '$SOURCE_PATH' to '$DEST_PATH'..."; ln -s "$SOURCE_PATH" "$DEST_PATH" || die "Failed to create symbolic link for '$dir'."
+PACKAGES_TO_STOW=$(find "$STOW_DIR" -maxdepth 1 -mindepth 1 -type d -printf "%f\n")
+cd "$STOW_DIR"
+for pkg in $PACKAGES_TO_STOW; do
+    DEST_PATH="$HOME/.config/$pkg"
+    if [ -e "$DEST_PATH" ] || [ -L "$DEST_PATH" ]; then
+        msg "Backing up existing config at '$DEST_PATH'..."
+        mv "$DEST_PATH" "$DEST_PATH.bak.$(date +%s)"
+    fi
+    msg "Stowing '$pkg' to '~/.config'..."
+    stow -t "$HOME/.config" "$pkg" || die "Failed to stow package '$pkg'."
 done
+cd - > /dev/null
 
 # --- Build Suckless Tools ---
 msg "Building and installing suckless tools...";
@@ -193,20 +201,13 @@ for tool in dwm slstatus st; do
 done
 
 # --- Final Setup ---
-# UPDATED: .xinitrc now only calls the autostart script
-msg "Creating a simplified .xinitrc file..."
+msg "Creating a simplified .xinitrc file...";
 cat > "$HOME/.xinitrc" << EOF
 #!/bin/sh
-
-# Launch the autostart script in the background.
-# Make sure your autostart script is executable: chmod +x ~/.config/scripts/autostart.sh
 [ -x "\$HOME/.config/scripts/autostart.sh" ] && \$HOME/.config/scripts/autostart.sh &
-
-# Execute dwm (this must be the last command)
 exec dwm
 EOF
 chmod +x "$HOME/.xinitrc"
-
 msg "Creating st desktop entry..."; mkdir -p "$HOME/.local/share/applications"
 cat > "$HOME/.local/share/applications/st.desktop" << EOF
 [Desktop Entry]
